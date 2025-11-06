@@ -53,6 +53,9 @@ export class Game {
     this.player.on('shoot', (data: any) => {
       this.bubbleManager.spawnProjectile(data.position, data.direction, data.speed);
     });
+    
+    // Attach player gun to camera for first-person view
+    this.player.setCamera(this.camera);
   }
 
   private setupRenderer(): void {
@@ -64,9 +67,9 @@ export class Game {
   }
 
   private setupCamera(): void {
-    // Side-view camera for 2.5D perspective
-    this.camera.position.set(0, 5, 15);
-    this.camera.lookAt(0, 5, 0);
+    // First-person camera
+    this.camera.position.set(0, 5, 0);
+    this.camera.lookAt(0, 5, -10);
   }
 
   private setupScene(): void {

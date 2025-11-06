@@ -31,14 +31,11 @@ export class InputManager {
     // Update raycaster
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
-    // Project to 3D space (using a plane at player's depth)
-    const targetPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
+    // Project raycast forward from camera (first-person aiming)
     const target = new THREE.Vector3();
-    this.raycaster.ray.intersectPlane(targetPlane, target);
+    this.raycaster.ray.at(50, target); // Aim point 50 units forward
 
-    if (target) {
-      this.player.setAimTarget(target);
-    }
+    this.player.setAimTarget(target);
 
     // Auto-fire while mouse is down
     if (this.isMouseDown) {

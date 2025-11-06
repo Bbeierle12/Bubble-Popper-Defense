@@ -46,11 +46,11 @@ export class WaveManager {
     const spawnCount = Math.min(enemyCount, 3); // Spawn in batches
 
     for (let i = 0; i < spawnCount; i++) {
-      // Random spawn position (right side of screen, various heights and depths)
+      // Random spawn position (in front of player, various positions)
       const position = new THREE.Vector3(
-        15 + Math.random() * 5, // X: right side
-        2 + Math.random() * 6,  // Y: height
-        (Math.random() - 0.5) * 10 // Z: depth
+        (Math.random() - 0.5) * 20, // X: left/right spread
+        2 + Math.random() * 6,       // Y: height
+        -15 - Math.random() * 10     // Z: distance in front (negative Z)
       );
 
       this.bubbleManager.spawnBubble('large', position);

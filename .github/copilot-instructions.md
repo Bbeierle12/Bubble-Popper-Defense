@@ -3,7 +3,7 @@
 This is a Three.js-based 3D arcade shooter game built with TypeScript and Vite.
 
 ## Project Context
-- **Game Type**: Wave-based arcade shooter with side-view 2.5D perspective
+- **Game Type**: Wave-based arcade shooter with first-person perspective
 - **Tech Stack**: Three.js, TypeScript, Vite
 - **Architecture**: Entity-Component System pattern
 
@@ -16,11 +16,11 @@ This is a Three.js-based 3D arcade shooter game built with TypeScript and Vite.
 - Keep game loop at 60 FPS target
 
 ### Game Systems
-- **Player**: Stick figure with IK arm aiming
+- **Player**: First-person view with gun visible in lower right
 - **Bubbles**: Three sizes (large → medium → small) with split mechanics
 - **Waves**: Progressive difficulty with spawn rate increases
 - **Scoring**: Combo multipliers and currency system
-- **UI**: HUD for health/score, shop between waves
+- **UI**: HUD for health/score, shop between waves, crosshair for aiming
 
 ### File Organization
 - Entities in `src/game/entities/`

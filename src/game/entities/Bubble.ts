@@ -76,8 +76,9 @@ export class Bubble {
     const drift = Math.sin(this.time * 2) * 0.2;
     this.speed = this.baseSpeed * (1 + drift);
 
-    // Move toward player (left)
-    this.velocity.x = -this.speed * deltaTime;
+    // Move toward player (positive Z in first-person)
+    this.velocity.z = this.speed * deltaTime;
+    this.velocity.x = Math.sin(this.time * 2) * 0.5 * deltaTime; // Horizontal drift
     this.velocity.y = Math.sin(this.time * 3) * 0.5 * deltaTime; // Vertical bobbing
 
     this.position.add(this.velocity);
@@ -104,7 +105,7 @@ export class Bubble {
   }
 
   public isOutOfBounds(): boolean {
-    return this.position.x < -15; // Reached player area
+    return this.position.z > 5; // Reached player (passed camera)
   }
 
   public destroy(): void {

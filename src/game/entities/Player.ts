@@ -4,10 +4,10 @@ import { ParticleSystem } from '../systems/ParticleSystem';
 export class Player {
   private scene: THREE.Scene;
   private particleSystem: ParticleSystem;
-  private group: THREE.Group;
-  private arm: THREE.Group;
-  private gun!: THREE.Mesh;
+  private gunGroup: THREE.Group;
+  private gun: THREE.Mesh;
   private targetPosition: THREE.Vector3;
+  private camera: THREE.Camera | null = null;
   
   // Health
   private shield: number = 3;
@@ -26,79 +26,57 @@ export class Player {
   constructor(scene: THREE.Scene, particleSystem: ParticleSystem) {
     this.scene = scene;
     this.particleSystem = particleSystem;
-    this.group = new THREE.Group();
-    this.arm = new THREE.Group();
+    this.gunGroup = new THREE.Group();
     this.targetPosition = new THREE.Vector3();
     
-    this.createStickFigure();
-    this.scene.add(this.group);
+    this.gun = this.createFirstPersonGun();
   }
 
-  private createStickFigure(): void {
-    // Position on platform
-    this.group.position.set(-10, 0, 0);
+  private createFirstPersonGun(): THREE.Mesh {
+    // Gun positioned in lower right of screen (first-person view)
+    const gunGeometry = new THREE.BoxGeometry(0.3, 0.15, 0.8);
+    const gunMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x333333,
+      metalness: 0.7,
+      roughness: 0.3
+    });
+    const gun = new THREE.Mesh(gunGeometry, gunMaterial);
+    
+    // Barrel
+    const barrelGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.4, 8);
+    const barrel = new THREE.Mesh(barrelGeometry, gunMaterial);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0, -0.6);
+    gun.add(barrel);
+    
+    // Position gun in lower right corner of view
+    gun.position.set(0.5, -0.3, -1);
+    this.gunGroup.add(gun);
+    
+    return gun;
+  }
 
-    // Torso
-    const torsoGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
-    const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    const torso = new THREE.Mesh(torsoGeometry, material);
-    torso.position.y = 2;
-    this.group.add(torso);
-
-    // Head
-    const headGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-    const head = new THREE.Mesh(headGeometry, material);
-    head.position.y = 3.5;
-    this.group.add(head);
-
-    // Legs
-    const legGeometry = new THREE.CylinderGeometry(0.08, 0.08, 1.5, 8);
-    const leftLeg = new THREE.Mesh(legGeometry, material);
-    leftLeg.position.set(-0.2, 0.75, 0);
-    this.group.add(leftLeg);
-
-    const rightLeg = new THREE.Mesh(legGeometry, material);
-    rightLeg.position.set(0.2, 0.75, 0);
-    this.group.add(rightLeg);
-
-    // Arm (will rotate to aim)
-    const armGeometry = new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8);
-    const armMesh = new THREE.Mesh(armGeometry, material);
-    armMesh.position.y = 0.6;
-    armMesh.rotation.z = Math.PI / 2;
-    this.arm.add(armMesh);
-
-    // Gun
-    const gunGeometry = new THREE.BoxGeometry(0.6, 0.15, 0.15);
-    const gunMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-    this.gun = new THREE.Mesh(gunGeometry, gunMaterial);
-    this.gun.position.set(0.9, 0.6, 0);
-    this.arm.add(this.gun);
-
-    this.arm.position.set(0, 2.5, 0);
-    this.group.add(this.arm);
+  public setCamera(camera: THREE.Camera): void {
+    this.camera = camera;
+    // Attach gun to camera
+    camera.add(this.gunGroup);
   }
 
   public update(_deltaTime: number): void {
-    // Idle sway animation
+    // Gentle gun sway for first-person
     const time = performance.now() * 0.001;
-    this.group.rotation.z = Math.sin(time * 2) * 0.05;
+    this.gun.rotation.z = Math.sin(time * 1.5) * 0.02;
+    this.gun.position.y = -0.3 + Math.sin(time * 2) * 0.01;
 
-    // Rotate arm to face target
-    this.updateArmRotation();
+    // Rotate camera to face target
+    this.updateCameraRotation();
   }
 
-  private updateArmRotation(): void {
-    // Calculate angle from arm to target
-    const armPos = new THREE.Vector3();
-    this.arm.getWorldPosition(armPos);
-
-    const dx = this.targetPosition.x - armPos.x;
-    const dy = this.targetPosition.y - armPos.y;
-    const angle = Math.atan2(dy, dx);
-
-    // Apply rotation
-    this.arm.rotation.z = angle;
+  private updateCameraRotation(): void {
+    if (!this.camera) return;
+    
+    // Make camera look at target position
+    this.camera.lookAt(this.targetPosition);
   }
 
   public setAimTarget(position: THREE.Vector3): void {
@@ -113,11 +91,13 @@ export class Player {
 
     this.lastShotTime = now;
 
-    // Get gun world position
-    const gunPos = new THREE.Vector3();
-    this.gun.getWorldPosition(gunPos);
+    if (!this.camera) return false;
 
-    // Calculate direction
+    // Shoot from camera position (player's eyes)
+    const gunPos = new THREE.Vector3();
+    this.camera.getWorldPosition(gunPos);
+
+    // Calculate direction from camera to target
     const direction = new THREE.Vector3()
       .subVectors(this.targetPosition, gunPos)
       .normalize();
@@ -125,8 +105,17 @@ export class Player {
     // Create projectile (handled by bubble manager)
     this.emit('shoot', { position: gunPos, direction, speed: this.projectileSpeed });
 
-    // Muzzle flash effect
-    this.particleSystem.createMuzzleFlash(gunPos);
+    // Muzzle flash effect at gun barrel
+    const barrelPos = new THREE.Vector3();
+    this.gun.getWorldPosition(barrelPos);
+    barrelPos.z -= 0.6; // Offset to barrel end
+    this.particleSystem.createMuzzleFlash(barrelPos);
+
+    // Gun recoil animation
+    this.gun.position.z += 0.05;
+    setTimeout(() => {
+      this.gun.position.z = -1;
+    }, 50);
 
     return true;
   }

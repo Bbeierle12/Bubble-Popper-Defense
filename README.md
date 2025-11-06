@@ -1,6 +1,6 @@
 # 🎮 Bubble Popper Defense
 
-A 3D arcade shooter built with Three.js where you defend against waves of floating bubbles in a side-view perspective.
+A 3D arcade shooter built with Three.js where you defend against waves of floating bubbles in first-person perspective.
 
 ## 🚀 Quick Start
 
