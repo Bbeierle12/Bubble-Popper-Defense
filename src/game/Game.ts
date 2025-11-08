@@ -11,6 +11,10 @@ import { SettingsManager } from './systems/SettingsManager';
 import { WeaponManager } from './systems/WeaponManager';
 import { ProgressionManager } from './systems/ProgressionManager';
 import { AchievementManager } from './systems/AchievementManager';
+import { ShieldVisualizer } from './systems/ShieldVisualizer';
+import { HealthVisualizer } from './systems/HealthVisualizer';
+import { EnvironmentEnhancer } from './systems/EnvironmentEnhancer';
+import { EnhancedHUD } from './systems/EnhancedHUD';
 
 export class Game {
   private scene: THREE.Scene;
@@ -27,6 +31,10 @@ export class Game {
   private weaponManager: WeaponManager;
   private progressionManager: ProgressionManager;
   private achievementManager: AchievementManager;
+  private shieldVisualizer: ShieldVisualizer;
+  private healthVisualizer: HealthVisualizer;
+  private environmentEnhancer: EnvironmentEnhancer;
+  private enhancedHUD: EnhancedHUD;
   private clock: THREE.Clock;
   private isRunning: boolean = false;
 
@@ -70,6 +78,12 @@ export class Game {
     this.uiManager = new UIManager(this.scoreManager, this.waveManager, this.settingsManager);
     this.uiManager.setWeaponManager(this.weaponManager);
 
+    // Initialize visual systems
+    this.shieldVisualizer = new ShieldVisualizer(this.scene, this.camera);
+    this.healthVisualizer = new HealthVisualizer(this.scene, this.camera, this.renderer);
+    this.environmentEnhancer = new EnvironmentEnhancer(this.scene, this.renderer);
+    this.enhancedHUD = new EnhancedHUD(this.scene, this.camera);
+
     // Sync audio volume with settings
     this.audioManager.setVolume(this.settingsManager.getAudioVolume());
     this.settingsManager.on('settingsChanged', () => {
@@ -83,6 +97,15 @@ export class Game {
       this.audioManager.playShootSound();
       this.shake(2); // Small shake on shoot
       this.achievementManager.onProjectileFired();
+    });
+
+    // Wire up score updates to enhanced HUD
+    this.scoreManager.on('scoreChanged', (data: any) => {
+      this.enhancedHUD.updateScore(data.score, data.addition);
+    });
+
+    this.scoreManager.on('multiplierChanged', (multiplier: number) => {
+      this.enhancedHUD.updateCombo(multiplier);
     });
 
     // Wire up screen clear bomb
@@ -110,13 +133,12 @@ export class Game {
   }
 
   private setupScene(): void {
-    // Background
+    // Basic background (EnvironmentEnhancer will provide the skybox)
     this.scene.background = new THREE.Color(0x0a0a1a);
-    this.scene.fog = new THREE.Fog(0x0a0a1a, 20, 50);
 
     // Ground plane
     const groundGeometry = new THREE.PlaneGeometry(100, 100);
-    const groundMaterial = new THREE.MeshStandardMaterial({ 
+    const groundMaterial = new THREE.MeshStandardMaterial({
       color: 0x1a1a2e,
       roughness: 0.8,
       metalness: 0.2
@@ -126,10 +148,7 @@ export class Game {
     ground.receiveShadow = true;
     this.scene.add(ground);
 
-    // Grid helper for depth perception
-    const gridHelper = new THREE.GridHelper(100, 50, 0x00d4ff, 0x003344);
-    gridHelper.position.y = 0.01;
-    this.scene.add(gridHelper);
+    // The grid is now replaced by the animated grid in EnvironmentEnhancer
   }
 
   private setupLights(): void {
@@ -158,21 +177,46 @@ export class Game {
   }
 
   private setupEventListeners(): void {
-    // Update UI with player health
+    // Update UI and visual systems with player health
     this.player.on('shieldHit', () => {
       this.uiManager.updateShield(this.player.getShield(), this.player.getMaxShield());
+      this.shieldVisualizer.onShieldHit();
+      this.shieldVisualizer.activateShield(this.player.getShield(), this.player.getMaxShield());
+      this.enhancedHUD.updateHealth(
+        this.player.getShield(),
+        this.player.getMaxShield(),
+        this.player.getCoreHealth(),
+        this.player.getMaxCoreHealth()
+      );
+      // Show damage indicator
+      this.enhancedHUD.showDamageIndicator(new THREE.Vector3(0, 0, -1)); // TODO: Use actual damage direction
       this.audioManager.playShieldHitSound();
       this.shake(5); // Medium shake on shield hit
     });
 
     this.player.on('coreHit', () => {
       this.uiManager.updateCore(this.player.getCoreHealth(), this.player.getMaxCoreHealth());
+      this.healthVisualizer.updateHealth(this.player.getCoreHealth(), this.player.getMaxCoreHealth());
+      this.healthVisualizer.onDamageTaken();
+      this.enhancedHUD.updateHealth(
+        this.player.getShield(),
+        this.player.getMaxShield(),
+        this.player.getCoreHealth(),
+        this.player.getMaxCoreHealth()
+      );
+      this.enhancedHUD.showDamageIndicator(new THREE.Vector3(0, 0, -1)); // TODO: Use actual damage direction
       this.audioManager.playDamageSound();
       this.shake(8); // Large shake on core damage
     });
 
     this.player.on('shieldRegenerated', () => {
       this.uiManager.updateShield(this.player.getShield(), this.player.getMaxShield());
+      this.shieldVisualizer.activateShield(this.player.getShield(), this.player.getMaxShield());
+    });
+
+    this.player.on('shieldBroken', () => {
+      this.shieldVisualizer.onShieldBreak();
+      this.shieldVisualizer.activateShield(0, this.player.getMaxShield());
     });
 
     // Wave completion
@@ -248,31 +292,56 @@ export class Game {
       case 'rapidFire':
         this.weaponManager.purchaseWeapon('rapidFire');
         this.weaponManager.setWeapon('rapidFire');
+        this.enhancedHUD.updateWeapon('Rapid Fire');
         break;
       case 'spreadShot':
         this.weaponManager.purchaseWeapon('spreadShot');
         this.weaponManager.setWeapon('spreadShot');
+        this.enhancedHUD.updateWeapon('Spread Shot');
         break;
       case 'pierceShot':
         this.weaponManager.purchaseWeapon('pierceShot');
         this.weaponManager.setWeapon('pierceShot');
+        this.enhancedHUD.updateWeapon('Pierce Shot');
         break;
       case 'bomb':
         this.weaponManager.addScreenClearBomb();
         break;
       case 'shield':
         this.player.regenerateShield();
+        this.enhancedHUD.updateHealth(
+          this.player.getShield(),
+          this.player.getMaxShield(),
+          this.player.getCoreHealth(),
+          this.player.getMaxCoreHealth()
+        );
         break;
     }
   }
 
   public start(): void {
     this.isRunning = true;
-    
+
     // Initialize UI with player health
     this.uiManager.updateShield(this.player.getShield(), this.player.getMaxShield());
     this.uiManager.updateCore(this.player.getCoreHealth(), this.player.getMaxCoreHealth());
-    
+
+    // Initialize visual systems
+    this.shieldVisualizer.activateShield(this.player.getShield(), this.player.getMaxShield());
+    this.healthVisualizer.updateHealth(this.player.getCoreHealth(), this.player.getMaxCoreHealth());
+
+    // Initialize enhanced HUD
+    this.enhancedHUD.updateHealth(
+      this.player.getShield(),
+      this.player.getMaxShield(),
+      this.player.getCoreHealth(),
+      this.player.getMaxCoreHealth()
+    );
+    this.enhancedHUD.updateScore(0, 0);
+    this.enhancedHUD.updateCombo(1);
+    this.enhancedHUD.updateWeapon('Standard');
+    this.enhancedHUD.updateWaveProgress(0, 10);
+
     this.waveManager.startWave(1);
     this.animate();
   }
@@ -293,7 +362,19 @@ export class Game {
     this.bubbleManager.update(deltaTime, this.player);
     this.waveManager.update(deltaTime);
     this.particleSystem.update(deltaTime);
+    this.shieldVisualizer.update(deltaTime);
+    this.healthVisualizer.update(deltaTime);
+    this.environmentEnhancer.update(deltaTime);
     this.uiManager.update();
+
+    // Update enhanced HUD
+    const currentEnemies = this.bubbleManager.getBubbles().length;
+    const totalEnemies = this.waveManager.getTotalEnemies ? this.waveManager.getTotalEnemies() : currentEnemies;
+    this.enhancedHUD.updateWaveProgress(totalEnemies - currentEnemies, totalEnemies);
+
+    // Update threat radar with bubble positions
+    const threats = this.bubbleManager.getBubbles().map(b => b.position);
+    this.enhancedHUD.updateThreatRadar(threats);
 
     // Check projectile-bubble collisions
     this.checkProjectileCollisions();
@@ -475,9 +556,13 @@ export class Game {
     this.player.reset();
     this.particleSystem.clear();
 
+    // Reset visual systems
+    this.shieldVisualizer.activateShield(this.player.getShield(), this.player.getMaxShield());
+    this.healthVisualizer.updateHealth(this.player.getCoreHealth(), this.player.getMaxCoreHealth());
+
     // Reset achievement tracking flags
     this.noPurchasesMade = true;
-    
+
     // Restart game
     this.isRunning = true;
     this.clock.start();
