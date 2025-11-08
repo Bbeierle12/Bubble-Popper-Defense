@@ -78,8 +78,8 @@ export class UIManager {
         <div class="boss-health-label">BOSS</div>
         <div class="boss-health-fill" id="boss-health-fill"></div>
       </div>
-      <button class="settings-button" id="settings-button">⚙️</button>
-      <button class="progression-button" id="progression-button">⭐</button>
+      <button class="settings-button" id="settings-button" title="Settings (S)">⚙️</button>
+      <button class="progression-button" id="progression-button" title="Progression (P)">⭐</button>
       <div class="pointer-lock-hint" id="pointer-lock-hint">Click to play</div>
       <div class="achievement-notification" id="achievement-notification"></div>
     `;
@@ -353,6 +353,12 @@ export class UIManager {
 
   public hideShop(): void {
     document.getElementById('shop-panel')?.classList.remove('active');
+    // Re-request pointer lock after closing shop
+    const canvas = document.querySelector('canvas');
+    if (canvas && !document.getElementById('progression-panel')?.classList.contains('active') &&
+        !document.getElementById('settings-panel')?.classList.contains('active')) {
+      canvas.requestPointerLock();
+    }
   }
 
   public showGameOver(score: number, wave: number): void {
@@ -399,10 +405,10 @@ export class UIManager {
           </div>
 
           <div class="settings-hint">
-            Press ESC to close settings
+            Press ESC or S to close settings
           </div>
 
-          <button class="close-settings-button" id="close-settings-button">Close</button>
+          <button class="close-settings-button" id="close-settings-button">Close (ESC/S)</button>
         </div>
       </div>
     `;
@@ -442,6 +448,17 @@ export class UIManager {
   private setupKeyboardListeners(): void {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        // Close any open panels
+        if (document.getElementById('settings-panel')?.classList.contains('active')) {
+          this.hideSettings();
+        } else if (document.getElementById('progression-panel')?.classList.contains('active')) {
+          this.hideProgressionMenu();
+        }
+      } else if (e.key.toLowerCase() === 'p') {
+        // P key for progression menu
+        this.toggleProgressionMenu();
+      } else if (e.key.toLowerCase() === 's') {
+        // S key for settings menu
         this.toggleSettings();
       }
     });
@@ -477,6 +494,12 @@ export class UIManager {
 
   private hideSettings(): void {
     document.getElementById('settings-panel')?.classList.remove('active');
+    // Re-request pointer lock after closing settings
+    const canvas = document.querySelector('canvas');
+    if (canvas && !document.getElementById('shop-panel')?.classList.contains('active') &&
+        !document.getElementById('progression-panel')?.classList.contains('active')) {
+      canvas.requestPointerLock();
+    }
   }
 
   public showBossHealthBar(): void {
@@ -575,7 +598,7 @@ export class UIManager {
             <div id="progression-stats-content"></div>
           </div>
 
-          <button class="close-progression-button" id="close-progression-button">Close</button>
+          <button class="close-progression-button" id="close-progression-button">Close (ESC/P)</button>
         </div>
       </div>
     `;
@@ -681,6 +704,12 @@ export class UIManager {
 
   private hideProgressionMenu(): void {
     document.getElementById('progression-panel')?.classList.remove('active');
+    // Re-request pointer lock after closing progression menu
+    const canvas = document.querySelector('canvas');
+    if (canvas && !document.getElementById('shop-panel')?.classList.contains('active') &&
+        !document.getElementById('settings-panel')?.classList.contains('active')) {
+      canvas.requestPointerLock();
+    }
   }
 
   private updateProgressionMenu(): void {
