@@ -1,20 +1,41 @@
 import { ScoreManager } from './ScoreManager';
 import { WaveManager } from './WaveManager';
+import { SettingsManager } from './SettingsManager';
+import { WeaponManager } from './WeaponManager';
+import { ProgressionManager } from './ProgressionManager';
+import { AchievementManager } from './AchievementManager';
 
 export class UIManager {
   private scoreManager: ScoreManager;
   private waveManager: WaveManager;
+  private settingsManager: SettingsManager;
+  private weaponManager: WeaponManager | null = null;
+  private progressionManager: ProgressionManager;
+  private achievementManager: AchievementManager;
   private hudElement: HTMLElement | null;
   private eventListeners: Map<string, Function[]> = new Map();
+  private achievementQueue: any[] = [];
 
-  constructor(scoreManager: ScoreManager, waveManager: WaveManager) {
+  constructor(scoreManager: ScoreManager, waveManager: WaveManager, settingsManager: SettingsManager) {
     this.scoreManager = scoreManager;
     this.waveManager = waveManager;
+    this.settingsManager = settingsManager;
+    this.progressionManager = ProgressionManager.getInstance();
+    this.achievementManager = AchievementManager.getInstance();
     this.hudElement = document.getElementById('hud');
-    
+
     this.createHUD();
     this.setupShop();
     this.setupGameOver();
+    this.setupSettings();
+    this.setupProgressionMenu();
+    this.setupAchievementNotifications();
+    this.setupKeyboardListeners();
+    this.setupProgressionListeners();
+  }
+
+  public setWeaponManager(weaponManager: WeaponManager): void {
+    this.weaponManager = weaponManager;
   }
 
   private createHUD(): void {
@@ -32,16 +53,46 @@ export class UIManager {
             <div class="core-bar" id="core-bar"></div>
           </div>
         </div>
+        <div class="hud-center">
+          <div class="stars-display">⭐ <span id="stars">0</span></div>
+        </div>
         <div class="hud-right">
           <div class="score-display" id="score">0</div>
           <div class="wave-info">
             <span>Wave <span id="wave-number">1</span></span>
             <span class="multiplier">x<span id="multiplier">1</span></span>
           </div>
+          <div class="enemy-counter" id="enemy-counter">Enemies: 0/0</div>
           <div>Coins: <span id="coins">0</span></div>
         </div>
       </div>
+      <div class="hud-bottom">
+        <div class="weapon-info">
+          <span>Weapon: <span id="current-weapon">Standard</span></span>
+        </div>
+        <div class="bombs-info">
+          <span>💣 Bombs: <span id="bomb-count">0</span> <span style="opacity: 0.6;">(Press B)</span></span>
+        </div>
+      </div>
+      <div class="boss-health-bar" id="boss-health-bar">
+        <div class="boss-health-label">BOSS</div>
+        <div class="boss-health-fill" id="boss-health-fill"></div>
+      </div>
+      <button class="settings-button" id="settings-button">⚙️</button>
+      <button class="progression-button" id="progression-button">⭐</button>
+      <div class="pointer-lock-hint" id="pointer-lock-hint">Click to play</div>
+      <div class="achievement-notification" id="achievement-notification"></div>
     `;
+
+    // Setup settings button
+    document.getElementById('settings-button')?.addEventListener('click', () => {
+      this.toggleSettings();
+    });
+
+    // Setup progression button
+    document.getElementById('progression-button')?.addEventListener('click', () => {
+      this.toggleProgressionMenu();
+    });
   }
 
   private setupShop(): void {
@@ -51,21 +102,27 @@ export class UIManager {
         <div id="shop-coins" style="text-align: center; font-size: 24px; margin-bottom: 20px;">
           Coins: <span id="shop-coins-value">0</span>
         </div>
-        <div class="shop-items">
-          <div class="shop-item" data-upgrade="firerate">
-            <div class="shop-item-name">Fire Rate +25%</div>
-            <div class="shop-item-description">Shoot faster</div>
-            <div class="shop-item-cost">💰 50</div>
+        <div class="shop-sections">
+          <div class="shop-section">
+            <h3>Weapons</h3>
+            <div class="shop-items" id="weapon-shop-items">
+              <!-- Weapons will be populated dynamically -->
+            </div>
           </div>
-          <div class="shop-item" data-upgrade="damage">
-            <div class="shop-item-name">Damage Boost</div>
-            <div class="shop-item-description">Pop bubbles faster</div>
-            <div class="shop-item-cost">💰 100</div>
-          </div>
-          <div class="shop-item" data-upgrade="shield">
-            <div class="shop-item-name">Restore Shield</div>
-            <div class="shop-item-description">Regenerate 1 shield point</div>
-            <div class="shop-item-cost">💰 100</div>
+          <div class="shop-section">
+            <h3>Items</h3>
+            <div class="shop-items">
+              <div class="shop-item" data-upgrade="bomb">
+                <div class="shop-item-name">Screen Clear Bomb</div>
+                <div class="shop-item-description">Destroy all bubbles on screen</div>
+                <div class="shop-item-cost">💰 150</div>
+              </div>
+              <div class="shop-item" data-upgrade="shield">
+                <div class="shop-item-name">Restore Shield</div>
+                <div class="shop-item-description">Regenerate 1 shield point</div>
+                <div class="shop-item-cost">💰 100</div>
+              </div>
+            </div>
           </div>
         </div>
         <button class="continue-button" id="continue-button">Continue to Next Wave</button>
@@ -74,10 +131,142 @@ export class UIManager {
 
     document.body.insertAdjacentHTML('beforeend', shopHTML);
 
+    // Setup click handlers for shop items
+    this.setupShopItemHandlers();
+
     // Setup continue button
     document.getElementById('continue-button')?.addEventListener('click', () => {
       this.hideShop();
       this.emit('shopContinue');
+    });
+  }
+
+  private setupShopItemHandlers(): void {
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const shopItem = target.closest('.shop-item') as HTMLElement;
+
+      if (shopItem && document.getElementById('shop-panel')?.classList.contains('active')) {
+        const upgrade = shopItem.dataset.upgrade;
+        if (upgrade) {
+          this.handleShopPurchase(upgrade);
+        }
+      }
+    });
+  }
+
+  private handleShopPurchase(upgrade: string): void {
+    // Check if it's a weapon purchase
+    if (upgrade === 'rapidFire' || upgrade === 'spreadShot' || upgrade === 'pierceShot') {
+      if (!this.weaponManager) return;
+
+      // Check if weapon is unlocked in progression
+      if (!this.weaponManager.isWeaponUnlocked(upgrade as any)) {
+        // Show notification that weapon needs to be unlocked first
+        this.showAchievementNotification({
+          name: 'Weapon Locked',
+          description: 'Unlock this weapon with stars in the progression menu!',
+          stars: 0,
+          icon: '🔒'
+        });
+        return;
+      }
+
+      // Check if already purchased
+      if (this.weaponManager.isWeaponPurchased(upgrade as any)) {
+        // Just equip it
+        this.weaponManager.setWeapon(upgrade as any);
+        this.populateWeaponShop();
+        return;
+      }
+    }
+
+    let cost = 0;
+
+    switch (upgrade) {
+      case 'rapidFire':
+        cost = 200;
+        break;
+      case 'spreadShot':
+        cost = 350;
+        break;
+      case 'pierceShot':
+        cost = 500;
+        break;
+      case 'bomb':
+        cost = 150;
+        break;
+      case 'shield':
+        cost = 100;
+        break;
+      default:
+        return;
+    }
+
+    if (this.scoreManager.getCoins() >= cost) {
+      this.scoreManager.spendCoins(cost);
+      this.emit('purchase', { upgrade, cost });
+      this.updateShopCoins();
+      this.populateWeaponShop(); // Refresh weapon shop
+    }
+  }
+
+  private updateShopCoins(): void {
+    const coinsValue = document.getElementById('shop-coins-value');
+    if (coinsValue) {
+      coinsValue.textContent = this.scoreManager.getCoins().toString();
+    }
+  }
+
+  private populateWeaponShop(): void {
+    if (!this.weaponManager) return;
+
+    const weaponShopItems = document.getElementById('weapon-shop-items');
+    if (!weaponShopItems) return;
+
+    weaponShopItems.innerHTML = '';
+
+    const weapons = this.weaponManager.getAllWeapons();
+
+    weapons.forEach((stats, weaponType) => {
+      if (weaponType === 'standard') return; // Skip standard weapon
+
+      const isUnlockedInProgression = this.weaponManager!.isWeaponUnlocked(weaponType);
+      const isPurchased = this.weaponManager!.isWeaponPurchased(weaponType);
+      const isCurrent = this.weaponManager!.getCurrentWeapon() === weaponType;
+
+      const weaponItem = document.createElement('div');
+
+      // Set classes based on state
+      let itemClass = 'shop-item';
+      if (!isUnlockedInProgression) {
+        itemClass += ' locked';
+      } else if (isPurchased) {
+        itemClass += ' unlocked';
+        if (isCurrent) {
+          itemClass += ' equipped';
+        }
+      }
+
+      weaponItem.className = itemClass;
+      weaponItem.dataset.upgrade = weaponType;
+
+      let costDisplay = '';
+      if (!isUnlockedInProgression) {
+        costDisplay = '🔒 Unlock with Stars';
+      } else if (isPurchased) {
+        costDisplay = isCurrent ? 'EQUIPPED' : 'EQUIP';
+      } else {
+        costDisplay = `💰 ${stats.cost}`;
+      }
+
+      weaponItem.innerHTML = `
+        <div class="shop-item-name">${stats.name}</div>
+        <div class="shop-item-description">${stats.description}</div>
+        <div class="shop-item-cost">${costDisplay}</div>
+      `;
+
+      weaponShopItems.appendChild(weaponItem);
     });
   }
 
@@ -107,6 +296,25 @@ export class UIManager {
     this.updateElement('multiplier', this.scoreManager.getMultiplier().toString());
     this.updateElement('coins', this.scoreManager.getCoins().toString());
     this.updateElement('wave-number', this.waveManager.getCurrentWave().toString());
+    this.updateElement('stars', this.progressionManager.getTotalStars().toString());
+
+    // Update weapon and bomb info
+    if (this.weaponManager) {
+      const weaponStats = this.weaponManager.getCurrentWeaponStats();
+      this.updateElement('current-weapon', weaponStats.name);
+      this.updateElement('bomb-count', this.weaponManager.getScreenClearBombs().toString());
+    }
+
+    // Update enemy counter
+    const progress = this.waveManager.getWaveProgress();
+    const enemyCounter = document.getElementById('enemy-counter');
+    if (enemyCounter && this.waveManager.getCurrentWave() > 0) {
+      if (this.waveManager.getCurrentWave() === 10) {
+        enemyCounter.textContent = 'BOSS WAVE';
+      } else {
+        enemyCounter.textContent = `Enemies: ${progress.remaining}/${progress.total}`;
+      }
+    }
   }
 
   public updateShield(current: number, max: number): void {
@@ -138,6 +346,7 @@ export class UIManager {
     const coinsValue = document.getElementById('shop-coins-value');
     if (shop && coinsValue) {
       coinsValue.textContent = this.scoreManager.getCoins().toString();
+      this.populateWeaponShop(); // Populate weapon shop items
       shop.classList.add('active');
     }
   }
@@ -162,6 +371,136 @@ export class UIManager {
     document.getElementById('game-over-screen')?.classList.remove('active');
   }
 
+  private setupSettings(): void {
+    const settings = this.settingsManager.getSettings();
+
+    const settingsHTML = `
+      <div class="settings-panel" id="settings-panel">
+        <div class="settings-content">
+          <h2 class="settings-title">Settings</h2>
+
+          <div class="setting-group">
+            <label for="sensitivity-slider">Mouse Sensitivity</label>
+            <input type="range" id="sensitivity-slider" min="1" max="100" value="${Math.round(settings.mouseSensitivity * 10000)}" />
+            <span id="sensitivity-value">${Math.round(settings.mouseSensitivity * 10000)}</span>
+          </div>
+
+          <div class="setting-group">
+            <label for="volume-slider">Audio Volume</label>
+            <input type="range" id="volume-slider" min="0" max="100" value="${Math.round(settings.audioVolume * 100)}" />
+            <span id="volume-value">${Math.round(settings.audioVolume * 100)}%</span>
+          </div>
+
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="invert-y-checkbox" ${settings.invertY ? 'checked' : ''} />
+              Invert Y-Axis
+            </label>
+          </div>
+
+          <div class="settings-hint">
+            Press ESC to close settings
+          </div>
+
+          <button class="close-settings-button" id="close-settings-button">Close</button>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', settingsHTML);
+
+    // Setup sensitivity slider
+    const sensitivitySlider = document.getElementById('sensitivity-slider') as HTMLInputElement;
+    const sensitivityValue = document.getElementById('sensitivity-value');
+    sensitivitySlider?.addEventListener('input', (e) => {
+      const value = parseInt((e.target as HTMLInputElement).value);
+      this.settingsManager.setMouseSensitivity(value / 10000);
+      if (sensitivityValue) sensitivityValue.textContent = value.toString();
+    });
+
+    // Setup volume slider
+    const volumeSlider = document.getElementById('volume-slider') as HTMLInputElement;
+    const volumeValue = document.getElementById('volume-value');
+    volumeSlider?.addEventListener('input', (e) => {
+      const value = parseInt((e.target as HTMLInputElement).value);
+      this.settingsManager.setAudioVolume(value / 100);
+      if (volumeValue) volumeValue.textContent = value + '%';
+    });
+
+    // Setup invert Y checkbox
+    const invertYCheckbox = document.getElementById('invert-y-checkbox') as HTMLInputElement;
+    invertYCheckbox?.addEventListener('change', (e) => {
+      this.settingsManager.setInvertY((e.target as HTMLInputElement).checked);
+    });
+
+    // Setup close button
+    document.getElementById('close-settings-button')?.addEventListener('click', () => {
+      this.hideSettings();
+    });
+  }
+
+  private setupKeyboardListeners(): void {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.toggleSettings();
+      }
+    });
+
+    // Hide pointer lock hint when pointer is locked
+    document.addEventListener('pointerlockchange', () => {
+      const hint = document.getElementById('pointer-lock-hint');
+      if (hint) {
+        hint.style.display = document.pointerLockElement ? 'none' : 'block';
+      }
+    });
+  }
+
+  private toggleSettings(): void {
+    const panel = document.getElementById('settings-panel');
+    if (panel?.classList.contains('active')) {
+      this.hideSettings();
+    } else {
+      this.showSettings();
+    }
+  }
+
+  private showSettings(): void {
+    const panel = document.getElementById('settings-panel');
+    if (panel) {
+      // Exit pointer lock when opening settings
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+      panel.classList.add('active');
+    }
+  }
+
+  private hideSettings(): void {
+    document.getElementById('settings-panel')?.classList.remove('active');
+  }
+
+  public showBossHealthBar(): void {
+    const bossBar = document.getElementById('boss-health-bar');
+    if (bossBar) {
+      bossBar.classList.add('active');
+    }
+  }
+
+  public hideBossHealthBar(): void {
+    const bossBar = document.getElementById('boss-health-bar');
+    if (bossBar) {
+      bossBar.classList.remove('active');
+    }
+  }
+
+  public updateBossHealth(current: number, max: number): void {
+    const fill = document.getElementById('boss-health-fill');
+    if (fill) {
+      const percent = (current / max) * 100;
+      fill.style.width = percent + '%';
+    }
+  }
+
   private updateElement(id: string, value: string): void {
     const element = document.getElementById(id);
     if (element) {
@@ -181,6 +520,268 @@ export class UIManager {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach(callback => callback(data));
+    }
+  }
+
+  // Progression Menu
+  private setupProgressionMenu(): void {
+    const progressionHTML = `
+      <div class="progression-panel" id="progression-panel">
+        <div class="progression-content">
+          <h2 class="progression-title">Progression</h2>
+          <div class="progression-stars">
+            <div class="stars-total">⭐ Total Stars: <span id="progression-stars">0</span></div>
+          </div>
+
+          <div class="progression-sections">
+            <div class="progression-section">
+              <h3>Weapon Unlocks</h3>
+              <div class="unlock-tree" id="weapon-unlock-tree">
+                <div class="unlock-item" data-weapon="rapidFire">
+                  <div class="unlock-icon">🔥</div>
+                  <div class="unlock-name">Rapid Fire</div>
+                  <div class="unlock-cost">⭐ 10</div>
+                  <div class="unlock-status locked">LOCKED</div>
+                </div>
+                <div class="unlock-item" data-weapon="spreadShot">
+                  <div class="unlock-icon">🦅</div>
+                  <div class="unlock-name">Spread Shot</div>
+                  <div class="unlock-cost">⭐ 25</div>
+                  <div class="unlock-status locked">LOCKED</div>
+                </div>
+                <div class="unlock-item" data-weapon="pierceShot">
+                  <div class="unlock-icon">➡️</div>
+                  <div class="unlock-name">Pierce Shot</div>
+                  <div class="unlock-cost">⭐ 40</div>
+                  <div class="unlock-status locked">LOCKED</div>
+                </div>
+                <div class="unlock-item" data-weapon="laserBeam">
+                  <div class="unlock-icon">⚡</div>
+                  <div class="unlock-name">Laser Beam</div>
+                  <div class="unlock-cost">⭐ 60</div>
+                  <div class="unlock-status locked">LOCKED</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="progression-section">
+              <h3>Achievements (<span id="achievement-count">0/25</span>)</h3>
+              <div class="achievements-list" id="achievements-list"></div>
+            </div>
+          </div>
+
+          <div class="progression-stats">
+            <h3>Statistics</h3>
+            <div id="progression-stats-content"></div>
+          </div>
+
+          <button class="close-progression-button" id="close-progression-button">Close</button>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', progressionHTML);
+
+    // Setup close button
+    document.getElementById('close-progression-button')?.addEventListener('click', () => {
+      this.hideProgressionMenu();
+    });
+
+    // Setup unlock buttons
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const unlockItem = target.closest('.unlock-item') as HTMLElement;
+
+      if (unlockItem && document.getElementById('progression-panel')?.classList.contains('active')) {
+        const weapon = unlockItem.dataset.weapon;
+        if (weapon && this.progressionManager.canUnlockWeapon(weapon)) {
+          if (this.progressionManager.unlockWeapon(weapon)) {
+            this.updateProgressionMenu();
+            this.showAchievementNotification({
+              name: 'Weapon Unlocked!',
+              description: `You can now purchase ${weapon} from the shop!`,
+              stars: 0,
+              icon: '🔓'
+            });
+          }
+        }
+      }
+    });
+  }
+
+  private setupAchievementNotifications(): void {
+    // Achievement notification is already in the HUD
+    // This method sets up the queue processing
+    setInterval(() => {
+      if (this.achievementQueue.length > 0 && !document.querySelector('.achievement-notification.active')) {
+        const achievement = this.achievementQueue.shift();
+        this.showAchievementNotification(achievement);
+      }
+    }, 100);
+  }
+
+  private setupProgressionListeners(): void {
+    // Listen to progression events
+    (this.progressionManager as any).addEventListener('starsEarned', () => {
+      this.updateStarsDisplay();
+      this.updateProgressionMenu();
+    });
+
+    (this.progressionManager as any).addEventListener('weaponUnlocked', () => {
+      this.updateProgressionMenu();
+    });
+
+    (this.achievementManager as any).addEventListener('achievementUnlocked', (e: any) => {
+      this.achievementQueue.push(e.achievement);
+      this.updateProgressionMenu();
+    });
+  }
+
+  private showAchievementNotification(achievement: any): void {
+    const notification = document.getElementById('achievement-notification');
+    if (!notification) return;
+
+    notification.innerHTML = `
+      <div class="achievement-content">
+        <div class="achievement-icon">${achievement.icon || '🏆'}</div>
+        <div class="achievement-info">
+          <div class="achievement-name">${achievement.name}</div>
+          <div class="achievement-description">${achievement.description}</div>
+          ${achievement.stars > 0 ? `<div class="achievement-stars">+${achievement.stars} ⭐</div>` : ''}
+        </div>
+      </div>
+    `;
+
+    notification.classList.add('active');
+
+    setTimeout(() => {
+      notification.classList.remove('active');
+    }, 3000);
+  }
+
+  private toggleProgressionMenu(): void {
+    const panel = document.getElementById('progression-panel');
+    if (panel?.classList.contains('active')) {
+      this.hideProgressionMenu();
+    } else {
+      this.showProgressionMenu();
+    }
+  }
+
+  private showProgressionMenu(): void {
+    const panel = document.getElementById('progression-panel');
+    if (panel) {
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+      this.updateProgressionMenu();
+      panel.classList.add('active');
+    }
+  }
+
+  private hideProgressionMenu(): void {
+    document.getElementById('progression-panel')?.classList.remove('active');
+  }
+
+  private updateProgressionMenu(): void {
+    // Update stars
+    const starsElement = document.getElementById('progression-stars');
+    if (starsElement) {
+      starsElement.textContent = this.progressionManager.getTotalStars().toString();
+    }
+
+    // Update weapon unlocks
+    const unlockTree = document.getElementById('weapon-unlock-tree');
+    if (unlockTree) {
+      const weapons = ['rapidFire', 'spreadShot', 'pierceShot', 'laserBeam'];
+      weapons.forEach(weapon => {
+        const item = unlockTree.querySelector(`[data-weapon="${weapon}"]`) as HTMLElement;
+        if (item) {
+          const status = item.querySelector('.unlock-status') as HTMLElement;
+          if (this.progressionManager.isWeaponUnlocked(weapon)) {
+            status.textContent = 'UNLOCKED';
+            status.className = 'unlock-status unlocked';
+            item.classList.add('unlocked');
+          } else if (this.progressionManager.canUnlockWeapon(weapon)) {
+            status.textContent = 'UNLOCK';
+            status.className = 'unlock-status available';
+            item.classList.add('available');
+          } else {
+            status.textContent = 'LOCKED';
+            status.className = 'unlock-status locked';
+            item.classList.remove('available', 'unlocked');
+          }
+        }
+      });
+    }
+
+    // Update achievements
+    const achievementsList = document.getElementById('achievements-list');
+    const achievementCount = document.getElementById('achievement-count');
+    if (achievementsList && achievementCount) {
+      const progress = this.achievementManager.getAchievementProgress();
+      achievementCount.textContent = `${progress.unlocked}/${progress.total}`;
+
+      achievementsList.innerHTML = '';
+
+      // Show unlocked achievements first
+      progress.unlockedAchievements.forEach(ach => {
+        const achElement = document.createElement('div');
+        achElement.className = 'achievement-item unlocked';
+        achElement.innerHTML = `
+          <div class="achievement-icon">${ach.icon}</div>
+          <div class="achievement-details">
+            <div class="achievement-name">${ach.name}</div>
+            <div class="achievement-description">${ach.description}</div>
+          </div>
+          <div class="achievement-reward">⭐ ${ach.stars}</div>
+        `;
+        achievementsList.appendChild(achElement);
+      });
+
+      // Show locked achievements
+      progress.lockedAchievements.forEach(ach => {
+        const achElement = document.createElement('div');
+        achElement.className = 'achievement-item locked';
+        achElement.innerHTML = `
+          <div class="achievement-icon">🔒</div>
+          <div class="achievement-details">
+            <div class="achievement-name">${ach.name}</div>
+            <div class="achievement-description">${ach.description}</div>
+          </div>
+          <div class="achievement-reward">⭐ ${ach.stars}</div>
+        `;
+        achievementsList.appendChild(achElement);
+      });
+    }
+
+    // Update statistics
+    const statsContent = document.getElementById('progression-stats-content');
+    if (statsContent) {
+      const stats = this.progressionManager.getStatistics();
+
+      const formatTime = (seconds: number): string => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+      };
+
+      statsContent.innerHTML = `
+        <div class="stat-item">Total Bubbles Popped: ${stats.totalBubblesPopped}</div>
+        <div class="stat-item">Highest Wave: ${stats.highestWave}</div>
+        <div class="stat-item">Total Play Time: ${formatTime(stats.totalPlayTime)}</div>
+        <div class="stat-item">Perfect Waves: ${stats.perfectWaves}</div>
+        <div class="stat-item">Highest Combo: ${stats.highestCombo}</div>
+        <div class="stat-item">Total Coins Earned: ${stats.totalCoinsEarned}</div>
+        <div class="stat-item">Bosses Defeated: ${stats.totalBossesDefeated}</div>
+      `;
+    }
+  }
+
+  private updateStarsDisplay(): void {
+    const starsElement = document.getElementById('stars');
+    if (starsElement) {
+      starsElement.textContent = this.progressionManager.getTotalStars().toString();
     }
   }
 }

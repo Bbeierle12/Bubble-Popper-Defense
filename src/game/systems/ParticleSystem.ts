@@ -47,22 +47,82 @@ export class ParticleSystem {
     }
   }
 
-  public createMuzzleFlash(position: THREE.Vector3): void {
-    const geometry = new THREE.SphereGeometry(0.2, 8, 8);
-    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+  public createMuzzleFlash(position: THREE.Vector3, color: number = 0xffff00): void {
+    // Main flash
+    const geometry = new THREE.SphereGeometry(0.3, 8, 8);
+    const material = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true
+    });
     const mesh = new THREE.Mesh(geometry, material);
-    
     mesh.position.copy(position);
+
+    this.particles.push({
+      position: position.clone(),
+      velocity: new THREE.Vector3(0, 0, 0),
+      life: 0.08,
+      maxLife: 0.08,
+      mesh
+    });
+
+    this.scene.add(mesh);
+
+    // Glow ring
+    const ringGeometry = new THREE.RingGeometry(0.2, 0.4, 16);
+    const ringMaterial = new THREE.MeshBasicMaterial({
+      color,
+      side: THREE.DoubleSide,
+      transparent: true
+    });
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring.position.copy(position);
+    ring.lookAt(position.clone().add(new THREE.Vector3(0, 0, -1)));
 
     this.particles.push({
       position: position.clone(),
       velocity: new THREE.Vector3(0, 0, 0),
       life: 0.1,
       maxLife: 0.1,
-      mesh
+      mesh: ring
     });
 
-    this.scene.add(mesh);
+    this.scene.add(ring);
+  }
+
+  public createHitSparks(position: THREE.Vector3): void {
+    const sparkCount = 8;
+    const baseColor = 0xffaa00;
+
+    for (let i = 0; i < sparkCount; i++) {
+      const geometry = new THREE.SphereGeometry(0.04, 4, 4);
+      const material = new THREE.MeshBasicMaterial({ color: baseColor });
+      const mesh = new THREE.Mesh(geometry, material);
+
+      mesh.position.copy(position);
+
+      // Random outward direction
+      const angle = (Math.PI * 2 * i) / sparkCount;
+      const elevation = (Math.random() - 0.5) * Math.PI * 0.5;
+
+      const direction = new THREE.Vector3(
+        Math.cos(angle) * Math.cos(elevation),
+        Math.sin(elevation),
+        Math.sin(angle) * Math.cos(elevation)
+      );
+
+      const speed = 3 + Math.random() * 2;
+      const velocity = direction.multiplyScalar(speed);
+
+      this.particles.push({
+        position: position.clone(),
+        velocity,
+        life: 0.3 + Math.random() * 0.2,
+        maxLife: 0.5,
+        mesh
+      });
+
+      this.scene.add(mesh);
+    }
   }
 
   public update(deltaTime: number): void {

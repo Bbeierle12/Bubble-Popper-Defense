@@ -12,8 +12,15 @@ export class ScoreManager {
     // Increase multiplier with combo
     this.multiplier = Math.min(1 + Math.floor(this.combo / 5), 10);
 
-    // Add coins (70% of score)
-    this.coins += Math.floor(points * 0.7);
+    // Add coins (50% of points)
+    this.coins += Math.floor(points * 0.5);
+  }
+
+  public addWaveReward(wave: number): void {
+    // Exponential wave rewards: Wave 1: 15 coins → Wave 10: 400 coins
+    const baseReward = 15;
+    const reward = Math.floor(baseReward * Math.pow(1.4, wave - 1));
+    this.coins += reward;
   }
 
   public resetCombo(): void {

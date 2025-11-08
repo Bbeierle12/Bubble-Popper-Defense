@@ -1,40 +1,78 @@
 import * as THREE from 'three';
 import { Player } from '../entities/Player';
+import { SettingsManager } from './SettingsManager';
 
 export class InputManager {
-  private camera: THREE.Camera;
+  private camera: THREE.PerspectiveCamera;
   private player: Player;
-  private mouse: THREE.Vector2;
-  private raycaster: THREE.Raycaster;
+  private settingsManager: SettingsManager;
   private isMouseDown: boolean = false;
+  private isPointerLocked: boolean = false;
 
-  constructor(camera: THREE.Camera, player: Player) {
+  // Camera rotation
+  private euler: THREE.Euler = new THREE.Euler(0, 0, 0, 'YXZ');
+  private readonly MIN_POLAR_ANGLE = -Math.PI / 2; // Look down limit
+  private readonly MAX_POLAR_ANGLE = Math.PI / 2;  // Look up limit
+
+  constructor(camera: THREE.PerspectiveCamera, player: Player, settingsManager: SettingsManager) {
     this.camera = camera;
     this.player = player;
-    this.mouse = new THREE.Vector2();
-    this.raycaster = new THREE.Raycaster();
+    this.settingsManager = settingsManager;
 
     this.setupEventListeners();
+    this.requestPointerLock();
   }
 
   private setupEventListeners(): void {
-    window.addEventListener('mousemove', this.onMouseMove.bind(this));
-    window.addEventListener('mousedown', this.onMouseDown.bind(this));
-    window.addEventListener('mouseup', this.onMouseUp.bind(this));
+    document.addEventListener('click', this.onClick.bind(this));
+    document.addEventListener('pointerlockchange', this.onPointerLockChange.bind(this));
+    document.addEventListener('mousemove', this.onMouseMove.bind(this));
+    document.addEventListener('mousedown', this.onMouseDown.bind(this));
+    document.addEventListener('mouseup', this.onMouseUp.bind(this));
+    document.addEventListener('keydown', this.onKeyDown.bind(this));
+  }
+
+  private onClick(): void {
+    if (!this.isPointerLocked) {
+      this.requestPointerLock();
+    }
+  }
+
+  private requestPointerLock(): void {
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      canvas.requestPointerLock();
+    }
+  }
+
+  private onPointerLockChange(): void {
+    this.isPointerLocked = document.pointerLockElement !== null;
   }
 
   private onMouseMove(event: MouseEvent): void {
-    // Convert mouse position to normalized device coordinates
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    if (!this.isPointerLocked) return;
 
-    // Update raycaster
-    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const sensitivity = this.settingsManager.getMouseSensitivity();
+    const invertY = this.settingsManager.getInvertY();
 
-    // Project raycast forward from camera (first-person aiming)
-    const target = new THREE.Vector3();
-    this.raycaster.ray.at(50, target); // Aim point 50 units forward
+    // Get mouse movement delta
+    const movementX = event.movementX || 0;
+    const movementY = event.movementY || 0;
 
+    // Update euler angles
+    this.euler.setFromQuaternion(this.camera.quaternion);
+    this.euler.y -= movementX * sensitivity;
+    this.euler.x -= movementY * sensitivity * (invertY ? -1 : 1);
+
+    // Clamp vertical rotation to prevent camera flipping
+    this.euler.x = Math.max(this.MIN_POLAR_ANGLE, Math.min(this.MAX_POLAR_ANGLE, this.euler.x));
+
+    this.camera.quaternion.setFromEuler(this.euler);
+
+    // Update aim target based on camera direction
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(this.camera.quaternion);
+    const target = this.camera.position.clone().add(direction.multiplyScalar(50));
     this.player.setAimTarget(target);
 
     // Auto-fire while mouse is down
@@ -46,7 +84,9 @@ export class InputManager {
   private onMouseDown(event: MouseEvent): void {
     if (event.button === 0) { // Left click
       this.isMouseDown = true;
-      this.player.shoot();
+      if (this.isPointerLocked) {
+        this.player.shoot();
+      }
     }
   }
 
@@ -54,5 +94,32 @@ export class InputManager {
     if (event.button === 0) {
       this.isMouseDown = false;
     }
+  }
+
+  private onKeyDown(event: KeyboardEvent): void {
+    if (!this.isPointerLocked) return;
+
+    // B key for screen clear bomb
+    if (event.key.toLowerCase() === 'b') {
+      const weaponManager = this.player.getWeaponManager();
+      if (weaponManager.useScreenClearBomb()) {
+        // Bomb activated successfully
+      }
+    }
+
+    // Number keys for weapon switching
+    if (event.key === '1') {
+      this.player.getWeaponManager().setWeapon('standard');
+    } else if (event.key === '2') {
+      this.player.getWeaponManager().setWeapon('rapidFire');
+    } else if (event.key === '3') {
+      this.player.getWeaponManager().setWeapon('spreadShot');
+    } else if (event.key === '4') {
+      this.player.getWeaponManager().setWeapon('pierceShot');
+    }
+  }
+
+  public isLocked(): boolean {
+    return this.isPointerLocked;
   }
 }

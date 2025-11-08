@@ -1,34 +1,30 @@
 import * as THREE from 'three';
 import { ParticleSystem } from '../systems/ParticleSystem';
+import { WeaponManager } from '../systems/WeaponManager';
 
 export class Player {
-  private scene: THREE.Scene;
   private particleSystem: ParticleSystem;
+  private weaponManager: WeaponManager;
   private gunGroup: THREE.Group;
   private gun: THREE.Mesh;
   private targetPosition: THREE.Vector3;
   private camera: THREE.Camera | null = null;
-  
+
   // Health
   private shield: number = 3;
   private maxShield: number = 3;
   private coreHealth: number = 5;
   private maxCoreHealth: number = 5;
-  
-  // Weapon stats
-  private fireRate: number = 240; // ms between shots
-  private lastShotTime: number = 0;
-  private projectileSpeed: number = 20;
-  
+
   // Event system
   private eventListeners: Map<string, Function[]> = new Map();
 
-  constructor(scene: THREE.Scene, particleSystem: ParticleSystem) {
-    this.scene = scene;
+  constructor(_scene: THREE.Scene, particleSystem: ParticleSystem, weaponManager: WeaponManager) {
     this.particleSystem = particleSystem;
+    this.weaponManager = weaponManager;
     this.gunGroup = new THREE.Group();
     this.targetPosition = new THREE.Vector3();
-    
+
     this.gun = this.createFirstPersonGun();
   }
 
@@ -84,12 +80,9 @@ export class Player {
   }
 
   public shoot(): boolean {
-    const now = performance.now();
-    if (now - this.lastShotTime < this.fireRate) {
+    if (!this.weaponManager.canFire()) {
       return false;
     }
-
-    this.lastShotTime = now;
 
     if (!this.camera) return false;
 
@@ -97,13 +90,13 @@ export class Player {
     const gunPos = new THREE.Vector3();
     this.camera.getWorldPosition(gunPos);
 
-    // Calculate direction from camera to target
-    const direction = new THREE.Vector3()
-      .subVectors(this.targetPosition, gunPos)
-      .normalize();
+    // Calculate direction from camera forward direction
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(this.camera.quaternion);
+    direction.normalize();
 
-    // Create projectile (handled by bubble manager)
-    this.emit('shoot', { position: gunPos, direction, speed: this.projectileSpeed });
+    // Fire weapon (creates projectiles)
+    this.weaponManager.fire(gunPos, direction);
 
     // Muzzle flash effect at gun barrel
     const barrelPos = new THREE.Vector3();
@@ -116,6 +109,9 @@ export class Player {
     setTimeout(() => {
       this.gun.position.z = -1;
     }, 50);
+
+    // Emit event for audio/effects
+    this.emit('shoot', { position: gunPos, direction });
 
     return true;
   }
@@ -164,6 +160,10 @@ export class Player {
   public reset(): void {
     this.shield = this.maxShield;
     this.coreHealth = this.maxCoreHealth;
+  }
+
+  public getWeaponManager(): WeaponManager {
+    return this.weaponManager;
   }
 
   // Event system
