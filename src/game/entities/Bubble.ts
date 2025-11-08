@@ -125,7 +125,7 @@ export class Bubble {
     }
   }
 
-  public update(deltaTime: number): void {
+  public update(deltaTime: number, playerPosition?: THREE.Vector3): void {
     this.time += deltaTime;
 
     // Update damage flash
@@ -139,19 +139,42 @@ export class Bubble {
     const drift = Math.sin(this.time * 2) * 0.2;
     this.speed = this.baseSpeed * (1 + drift);
 
-    // Move toward player (positive Z in first-person)
-    this.velocity.z = this.speed * deltaTime;
+    // ZOMBIE CHASE AI: Move toward player position
+    if (playerPosition) {
+      // Calculate direction to player
+      const directionToPlayer = new THREE.Vector3()
+        .subVectors(playerPosition, this.position)
+        .normalize();
 
-    // Zigzag movement pattern
-    if (this.type === 'zigzag') {
-      this.velocity.x = Math.sin(this.time * 4) * this.zigzagAmplitude * deltaTime * 10;
-      this.velocity.y = Math.cos(this.time * 3) * this.zigzagAmplitude * deltaTime * 8;
-      // Increase amplitude over time for more erratic movement
-      this.zigzagAmplitude = Math.min(this.zigzagAmplitude + deltaTime * 0.1, 2.0);
+      // Base movement toward player
+      this.velocity.copy(directionToPlayer).multiplyScalar(this.speed * deltaTime);
+
+      // Zigzag movement pattern - adds erratic movement on top of chase
+      if (this.type === 'zigzag') {
+        // Add oscillation perpendicular to chase direction to make zigzag bubbles harder to predict
+        this.velocity.x += Math.sin(this.time * 4) * this.zigzagAmplitude * deltaTime * 10;
+        this.velocity.z += Math.cos(this.time * 4) * this.zigzagAmplitude * deltaTime * 10;
+        this.velocity.y = Math.cos(this.time * 3) * this.zigzagAmplitude * deltaTime * 8;
+
+        // Increase amplitude over time for more erratic movement
+        this.zigzagAmplitude = Math.min(this.zigzagAmplitude + deltaTime * 0.1, 2.0);
+      } else {
+        // Standard bubbles: add small random bobbing and drift while chasing
+        this.velocity.x += Math.sin(this.time * 2) * 0.5 * deltaTime;
+        this.velocity.y += Math.sin(this.time * 3) * 0.5 * deltaTime;
+      }
     } else {
-      // Standard horizontal drift and vertical bobbing
-      this.velocity.x = Math.sin(this.time * 2) * 0.5 * deltaTime;
-      this.velocity.y = Math.sin(this.time * 3) * 0.5 * deltaTime;
+      // Fallback: old behavior if no player position (move forward)
+      this.velocity.z = this.speed * deltaTime;
+
+      if (this.type === 'zigzag') {
+        this.velocity.x = Math.sin(this.time * 4) * this.zigzagAmplitude * deltaTime * 10;
+        this.velocity.y = Math.cos(this.time * 3) * this.zigzagAmplitude * deltaTime * 8;
+        this.zigzagAmplitude = Math.min(this.zigzagAmplitude + deltaTime * 0.1, 2.0);
+      } else {
+        this.velocity.x = Math.sin(this.time * 2) * 0.5 * deltaTime;
+        this.velocity.y = Math.sin(this.time * 3) * 0.5 * deltaTime;
+      }
     }
 
     // Store old position for trail
@@ -242,7 +265,19 @@ export class Bubble {
   }
 
   public isOutOfBounds(): boolean {
-    return this.position.z > 5; // Reached player (passed camera)
+    // Remove bubbles that are very far from the play area
+    const maxDistance = 100;
+    return Math.abs(this.position.x) > maxDistance ||
+           Math.abs(this.position.y) > maxDistance ||
+           Math.abs(this.position.z) > maxDistance;
+  }
+
+  public checkCollisionWithPlayer(playerPosition: THREE.Vector3, playerRadius: number): boolean {
+    // Calculate 3D distance between bubble and player
+    const distance = this.position.distanceTo(playerPosition);
+    
+    // Collision occurs when distance is less than combined radii
+    return distance < (this.radius + playerRadius);
   }
 
   public destroy(): void {

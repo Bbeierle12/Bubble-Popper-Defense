@@ -15,6 +15,8 @@ export class UIManager {
   private hudElement: HTMLElement | null;
   private eventListeners: Map<string, Function[]> = new Map();
   private achievementQueue: any[] = [];
+  private lastPointerLockChange: number = 0;
+  private readonly MENU_SHORTCUT_COOLDOWN = 500; // ms cooldown after pointer lock changes
 
   constructor(scoreManager: ScoreManager, waveManager: WaveManager, settingsManager: SettingsManager) {
     this.scoreManager = scoreManager;
@@ -447,24 +449,36 @@ export class UIManager {
 
   private setupKeyboardListeners(): void {
     document.addEventListener('keydown', (e) => {
+      // Check if pointer is locked (player is actively playing)
+      const isPointerLocked = document.pointerLockElement !== null;
+      const timeSinceLastLockChange = Date.now() - this.lastPointerLockChange;
+      const isInCooldown = timeSinceLastLockChange < this.MENU_SHORTCUT_COOLDOWN;
+
       if (e.key === 'Escape') {
-        // Close any open panels
+        // Escape always works - close any open panels or release pointer lock
         if (document.getElementById('settings-panel')?.classList.contains('active')) {
           this.hideSettings();
         } else if (document.getElementById('progression-panel')?.classList.contains('active')) {
           this.hideProgressionMenu();
         }
-      } else if (e.key.toLowerCase() === 'p') {
-        // P key for progression menu
-        this.toggleProgressionMenu();
-      } else if (e.key.toLowerCase() === 's') {
-        // S key for settings menu
-        this.toggleSettings();
+      } else if (!isPointerLocked && !isInCooldown) {
+        // Only allow menu shortcuts when:
+        // 1. NOT actively playing (pointer not locked)
+        // 2. AND enough time has passed since last pointer lock change (to prevent interference with movement)
+        if (e.key.toLowerCase() === 'p') {
+          // P key for progression menu
+          this.toggleProgressionMenu();
+        } else if (e.key.toLowerCase() === 's') {
+          // S key for settings menu
+          this.toggleSettings();
+        }
       }
     });
 
-    // Hide pointer lock hint when pointer is locked
+    // Track pointer lock changes and hide pointer lock hint
     document.addEventListener('pointerlockchange', () => {
+      this.lastPointerLockChange = Date.now();
+
       const hint = document.getElementById('pointer-lock-hint');
       if (hint) {
         hint.style.display = document.pointerLockElement ? 'none' : 'block';

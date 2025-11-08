@@ -316,9 +316,9 @@ body {
   border-radius: 50%;
   color: white;
   cursor: pointer;
-  pointer-events: all;
+  pointer-events: auto;
   transition: all 0.2s;
-  z-index: 200;
+  z-index: 100;
 }
 
 .settings-button:hover {
@@ -563,7 +563,9 @@ body {
   color: white;
   font-size: 24px;
   cursor: pointer;
+  pointer-events: auto;
   transition: all 0.3s ease;
+  z-index: 100;
 }
 
 .progression-button:hover {

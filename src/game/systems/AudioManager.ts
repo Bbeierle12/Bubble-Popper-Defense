@@ -2,6 +2,11 @@ export class AudioManager {
   private audioContext: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private volume: number = 0.3;
+  
+  // Footstep system
+  private footstepTimer: number = 0;
+  private readonly FOOTSTEP_INTERVAL_WALK: number = 0.45;
+  private readonly FOOTSTEP_INTERVAL_SPRINT: number = 0.30;
 
   constructor() {
     // Initialize AudioContext on first user interaction
@@ -155,6 +160,34 @@ export class AudioManager {
 
     this.playTone(clampedPitch, 0.08, 0.7, 'sine');
     this.playTone(clampedPitch * 1.5, 0.05, 0.4, 'sine');
+  }
+
+  // Footstep sounds - subtle thuds
+  public playFootstepSound(): void {
+    // Low thud sound with variation
+    const baseFreq = 60 + Math.random() * 20;
+    this.playTone(baseFreq, 0.08, 0.15, 'sine');
+    // Add a tiny bit of noise for texture
+    this.playNoise(0.04, 0.08);
+  }
+
+  // Update footstep system - call from game loop
+  public updateFootsteps(deltaTime: number, isMoving: boolean, isSprinting: boolean): void {
+    if (!isMoving) {
+      this.footstepTimer = 0;
+      return;
+    }
+
+    // Adjust footstep speed for sprinting
+    const currentInterval = isSprinting 
+      ? this.FOOTSTEP_INTERVAL_SPRINT 
+      : this.FOOTSTEP_INTERVAL_WALK;
+
+    this.footstepTimer += deltaTime;
+    if (this.footstepTimer >= currentInterval) {
+      this.playFootstepSound();
+      this.footstepTimer = 0;
+    }
   }
 
   public setVolume(volume: number): void {

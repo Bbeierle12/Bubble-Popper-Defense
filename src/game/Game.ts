@@ -95,7 +95,7 @@ export class Game {
     // Wire up player shooting to audio and effects
     this.player.on('shoot', () => {
       this.audioManager.playShootSound();
-      this.shake(2); // Small shake on shoot
+      this.shake(0.5); // Reduced from 2 to minimize jitter while shooting
       this.achievementManager.onProjectileFired();
     });
 
@@ -126,9 +126,9 @@ export class Game {
   }
 
   private setupCamera(): void {
-    // First-person camera
+    // First-person camera - will be updated to follow player position
     this.camera.position.set(0, 5, 0);
-    this.cameraBasePosition.copy(this.camera.position);
+    this.cameraBasePosition.set(0, 5, 0); // Base position for screen shake
     this.camera.lookAt(0, 5, -10);
   }
 
@@ -353,24 +353,36 @@ export class Game {
 
     const deltaTime = this.clock.getDelta();
 
-    // Update screen shake
-    this.updateScreenShake();
-
     // Update all systems
     this.player.update(deltaTime);
     this.weaponManager.update(deltaTime);
     this.bubbleManager.update(deltaTime, this.player);
-    this.waveManager.update(deltaTime);
+    this.waveManager.update(deltaTime, this.player.getPosition());
     this.particleSystem.update(deltaTime);
     this.shieldVisualizer.update(deltaTime);
     this.healthVisualizer.update(deltaTime);
     this.environmentEnhancer.update(deltaTime);
     this.uiManager.update();
 
+    // Update camera position with screen shake (after player update)
+    this.updateScreenShake();
+
+    // Update footstep audio based on player movement
+    this.audioManager.updateFootsteps(
+      deltaTime, 
+      this.player.isMoving(), 
+      this.player.getIsSprinting()
+    );
+
+    // Update sprint indicator on HUD
+    this.enhancedHUD.updateSprintIndicator(this.player.getIsSprinting());
+
     // Update enhanced HUD
     const currentEnemies = this.bubbleManager.getBubbles().length;
-    const totalEnemies = this.waveManager.getTotalEnemies ? this.waveManager.getTotalEnemies() : currentEnemies;
-    this.enhancedHUD.updateWaveProgress(totalEnemies - currentEnemies, totalEnemies);
+    const totalEnemies = this.waveManager.getTotalEnemies();
+    if (totalEnemies > 0) {
+      this.enhancedHUD.updateWaveProgress(totalEnemies - currentEnemies, totalEnemies);
+    }
 
     // Update threat radar with bubble positions
     const threats = this.bubbleManager.getBubbles().map(b => b.position);
@@ -513,18 +525,21 @@ export class Game {
   }
 
   private updateScreenShake(): void {
+    // Update base position to current player camera position (includes head bob)
+    this.cameraBasePosition.copy(this.player.getCameraPosition());
+
     if (this.shakeIntensity > 0.01) {
       // Apply random offset based on shake intensity
       const shakeAmount = this.shakeIntensity * 0.01; // Scale down for pixel units
       this.camera.position.x = this.cameraBasePosition.x + (Math.random() - 0.5) * shakeAmount;
       this.camera.position.y = this.cameraBasePosition.y + (Math.random() - 0.5) * shakeAmount;
+      this.camera.position.z = this.cameraBasePosition.z + (Math.random() - 0.5) * shakeAmount;
 
       // Decay shake over time
       this.shakeIntensity *= 0.9;
     } else if (this.shakeIntensity > 0) {
-      // Reset to base position when shake is done
-      this.camera.position.x = this.cameraBasePosition.x;
-      this.camera.position.y = this.cameraBasePosition.y;
+      // Reset to player camera position when shake is done
+      this.camera.position.copy(this.cameraBasePosition);
       this.shakeIntensity = 0;
     }
   }

@@ -10,6 +10,24 @@ export class Player {
   private targetPosition: THREE.Vector3;
   private camera: THREE.Camera | null = null;
 
+  // Position and movement
+  public position: THREE.Vector3 = new THREE.Vector3(0, 5, 0);
+  public velocity: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+  private readonly WALK_SPEED: number = 8.0;
+  private readonly SPRINT_SPEED: number = 14.0;
+  private readonly ACCELERATION: number = 50.0;
+  private readonly FRICTION: number = 35.0; // Increased from 10.0 for snappier stopping
+  private readonly BOUNDARY: number = 40; // Keep player within game area
+  private moveInput: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+  private isSprinting: boolean = false;
+
+  // Camera effects (view-only, don't affect physics position)
+  private bobTime: number = 0;
+  private headBobOffset: number = 0; // Y offset for head bob (visual only)
+  private readonly BASE_FOV: number = 75;
+  private readonly SPRINT_FOV: number = 82;
+  private currentFOV: number = 75;
+
   // Health
   private shield: number = 3;
   private maxShield: number = 3;
@@ -58,14 +76,151 @@ export class Player {
     camera.add(this.gunGroup);
   }
 
-  public update(_deltaTime: number): void {
-    // Gentle gun sway for first-person
-    const time = performance.now() * 0.001;
-    this.gun.rotation.z = Math.sin(time * 1.5) * 0.02;
-    this.gun.position.y = -0.3 + Math.sin(time * 2) * 0.01;
+  public update(deltaTime: number): void {
+    // Update movement physics FIRST (affects this.position)
+    this.updateMovement(deltaTime);
+
+    // Update camera effects (head bob and FOV - visual only, doesn't modify position)
+    this.updateCameraEffects(deltaTime);
+
+    // Update gun animations
+    this.updateGunAnimations(deltaTime);
 
     // Rotate camera to face target
     this.updateCameraRotation();
+
+    // Apply FOV changes for sprint (only when needed)
+    if (this.camera instanceof THREE.PerspectiveCamera) {
+      const targetFOV = this.isSprinting && this.isMoving() ? this.SPRINT_FOV : this.BASE_FOV;
+      const fovDiff = Math.abs(targetFOV - this.currentFOV);
+      if (fovDiff > 0.01) {
+        this.currentFOV += (targetFOV - this.currentFOV) * deltaTime * 8;
+        this.camera.fov = this.currentFOV;
+        this.camera.updateProjectionMatrix();
+      }
+    }
+  }
+
+  private updateGunAnimations(deltaTime: number): void {
+    const time = this.bobTime; // Use bobTime for consistency
+    const isMoving = this.velocity.length() > 0.1;
+
+    if (isMoving) {
+      // Movement bob
+      const bobSpeed = this.isSprinting ? 10 : 6;
+      this.gun.position.y = -0.3 + Math.sin(time * bobSpeed) * 0.05;
+      this.gun.position.x = 0.5 + Math.cos(time * bobSpeed * 0.5) * 0.02;
+    } else {
+      // Idle sway
+      this.gun.rotation.z = Math.sin(time * 1.5) * 0.02;
+      // Smoothly return to base position
+      this.gun.position.y += (-0.3 - this.gun.position.y) * deltaTime * 5;
+      this.gun.position.x += (0.5 - this.gun.position.x) * deltaTime * 5;
+    }
+  }
+
+  private updateCameraEffects(deltaTime: number): void {
+    const isMoving = this.velocity.length() > 0.1;
+
+    if (isMoving) {
+      // Increase bob time when moving
+      const bobSpeed = this.isSprinting ? 12 : 8;
+      this.bobTime += deltaTime * bobSpeed;
+
+      // Head bob - calculate Y offset (DON'T modify position.y!)
+      const bobAmount = Math.sin(this.bobTime) * 0.03;
+      const bobMultiplier = this.isSprinting ? 1.3 : 1.0;
+      this.headBobOffset = bobAmount * bobMultiplier;
+    } else {
+      // Smooth return to base when stopped
+      this.bobTime = 0;
+      this.headBobOffset *= 0.9;
+      if (Math.abs(this.headBobOffset) < 0.001) {
+        this.headBobOffset = 0;
+      }
+    }
+  }
+
+  // Get the camera view position (physics position + head bob offset)
+  public getCameraPosition(): THREE.Vector3 {
+    return new THREE.Vector3(
+      this.position.x,
+      this.position.y + this.headBobOffset,
+      this.position.z
+    );
+  }
+
+  private updateMovement(deltaTime: number): void {
+    // Calculate target velocity based on input
+    const currentSpeed = this.isSprinting ? this.SPRINT_SPEED : this.WALK_SPEED;
+    const targetVelocity = this.moveInput.clone().multiplyScalar(currentSpeed);
+
+    // Apply acceleration toward target velocity
+    const velocityDiff = targetVelocity.clone().sub(this.velocity);
+    const acceleration = velocityDiff.multiplyScalar(this.ACCELERATION * deltaTime);
+    this.velocity.add(acceleration);
+
+    // Apply friction when no input
+    if (this.moveInput.length() < 0.01) {
+      const frictionForce = this.velocity.clone().multiplyScalar(-this.FRICTION * deltaTime);
+      this.velocity.add(frictionForce);
+
+      // Stop if velocity is very small
+      if (this.velocity.length() < 0.1) {
+        this.velocity.set(0, 0, 0);
+      }
+    }
+
+    // Update position
+    this.position.x += this.velocity.x * deltaTime;
+    this.position.z += this.velocity.z * deltaTime;
+
+    // Keep player within boundaries and reset velocity when hitting walls
+    const oldX = this.position.x;
+    const oldZ = this.position.z;
+    this.position.x = Math.max(-this.BOUNDARY, Math.min(this.BOUNDARY, this.position.x));
+    this.position.z = Math.max(-this.BOUNDARY, Math.min(this.BOUNDARY, this.position.z));
+
+    // Reset velocity component if we hit a boundary
+    if (this.position.x !== oldX) {
+      this.velocity.x = 0;
+    }
+    if (this.position.z !== oldZ) {
+      this.velocity.z = 0;
+    }
+  }
+
+  public setMoveInput(input: THREE.Vector3, sprinting: boolean): void {
+    this.moveInput.copy(input);
+    this.isSprinting = sprinting;
+  }
+
+  public stopMovement(): void {
+    // Immediately stop all movement - used when pointer lock is lost
+    this.moveInput.set(0, 0, 0);
+    this.velocity.set(0, 0, 0);
+    this.isSprinting = false;
+  }
+
+  public getPosition(): THREE.Vector3 {
+    return this.position.clone();
+  }
+
+  public getPhysicsPosition(): THREE.Vector3 {
+    // Returns physics position (Y is always 5, not affected by head bob)
+    return this.position.clone();
+  }
+
+  public getCollisionRadius(): number {
+    return 0.8; // Player hitbox radius for collision detection
+  }
+
+  public isMoving(): boolean {
+    return this.velocity.length() > 0.1;
+  }
+
+  public getIsSprinting(): boolean {
+    return this.isSprinting && this.isMoving();
   }
 
   private updateCameraRotation(): void {

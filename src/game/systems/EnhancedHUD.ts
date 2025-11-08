@@ -127,6 +127,19 @@ export class EnhancedHUD {
       <div class="weapon-ammo" id="weapon-ammo">∞</div>
     `;
     this.container.appendChild(weaponContainer);
+
+    // Sprint indicator
+    const sprintIndicator = document.createElement('div');
+    sprintIndicator.className = 'sprint-indicator';
+    sprintIndicator.id = 'sprint-indicator';
+    sprintIndicator.innerHTML = `
+      <div class="sprint-icon">⚡</div>
+      <div class="sprint-bar">
+        <div class="sprint-bar-fill" id="sprint-bar-fill"></div>
+      </div>
+      <div class="sprint-label">SPRINT</div>
+    `;
+    this.container.appendChild(sprintIndicator);
   }
 
   private createStylesheet(): void {
@@ -144,7 +157,7 @@ export class EnhancedHUD {
       }
 
       .enhanced-hud > * {
-        pointer-events: auto;
+        pointer-events: none;
       }
 
       /* Animated Score */
@@ -474,6 +487,63 @@ export class EnhancedHUD {
         color: #00d4ff;
         font-weight: bold;
       }
+
+      /* Sprint Indicator */
+      .sprint-indicator {
+        position: absolute;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 8px 16px;
+        border: 2px solid rgba(255, 170, 0, 0.5);
+        border-radius: 15px;
+        opacity: 0.4;
+        transition: all 0.3s ease;
+      }
+
+      .sprint-indicator.active {
+        opacity: 1;
+        border-color: #ffaa00;
+        box-shadow: 0 0 20px rgba(255, 170, 0, 0.6);
+      }
+
+      .sprint-icon {
+        font-size: 24px;
+        animation: sprint-pulse 0.5s ease-in-out infinite;
+      }
+
+      .sprint-bar {
+        width: 80px;
+        height: 8px;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 170, 0, 0.3);
+      }
+
+      .sprint-bar-fill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #ff6600, #ffaa00);
+        border-radius: 4px;
+        transition: opacity 0.2s;
+      }
+
+      .sprint-label {
+        font-size: 12px;
+        color: #ffaa00;
+        font-weight: bold;
+        letter-spacing: 1px;
+      }
+
+      @keyframes sprint-pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -666,6 +736,18 @@ export class EnhancedHUD {
         'LASER': '⚔️'
       };
       iconEl.textContent = icons[weaponName.toUpperCase()] || '🔫';
+    }
+  }
+
+  public updateSprintIndicator(isSprinting: boolean): void {
+    const sprintIndicator = document.getElementById('sprint-indicator');
+    
+    if (sprintIndicator) {
+      if (isSprinting) {
+        sprintIndicator.classList.add('active');
+      } else {
+        sprintIndicator.classList.remove('active');
+      }
     }
   }
 

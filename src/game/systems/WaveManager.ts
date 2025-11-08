@@ -12,6 +12,7 @@ export class WaveManager {
   private bossSpawned: boolean = false;
   private totalBubblesSpawned: number = 0;
   private maxBubblesPerWave: number = 0;
+  private playerPosition: THREE.Vector3 = new THREE.Vector3(0, 5, 0);
 
   constructor(bubbleManager: BubbleManager) {
     this.bubbleManager = bubbleManager;
@@ -53,8 +54,13 @@ export class WaveManager {
     }
   }
 
-  public update(deltaTime: number): void {
+  public update(deltaTime: number, playerPosition?: THREE.Vector3): void {
     if (!this.isActive) return;
+
+    // Update player position for spawning
+    if (playerPosition) {
+      this.playerPosition.copy(playerPosition);
+    }
 
     this.waveTimer += deltaTime;
     this.spawnTimer += deltaTime;
@@ -101,11 +107,15 @@ export class WaveManager {
     spawnCount = Math.min(spawnCount, remainingBubbles);
 
     for (let i = 0; i < spawnCount; i++) {
-      // Random spawn position (in front of player, various positions)
+      // Spawn bubbles around the player in a circle at distance
+      const spawnDistance = 25 + Math.random() * 10; // 25-35 units away
+      const angle = Math.random() * Math.PI * 2; // Random angle around player
+
+      // Random spawn position (around player at distance)
       const position = new THREE.Vector3(
-        (Math.random() - 0.5) * 20, // X: left/right spread
-        2 + Math.random() * 6,       // Y: height
-        -25                          // Z: fixed distance in front (negative Z)
+        this.playerPosition.x + Math.cos(angle) * spawnDistance, // X: circle around player
+        2 + Math.random() * 6,                                    // Y: height
+        this.playerPosition.z + Math.sin(angle) * spawnDistance  // Z: circle around player
       );
 
       // Determine bubble type based on wave number
@@ -132,8 +142,13 @@ export class WaveManager {
   }
 
   private spawnBoss(): void {
-    // Spawn boss in center front
-    const bossPosition = new THREE.Vector3(0, 5, -25);
+    // Spawn boss at distance in front of player
+    const spawnDistance = 30;
+    const bossPosition = new THREE.Vector3(
+      this.playerPosition.x,
+      5,
+      this.playerPosition.z - spawnDistance
+    );
     this.bubbleManager.spawnBubble('boss', bossPosition, 'standard');
 
     this.emit('bossSpawned');
@@ -159,6 +174,10 @@ export class WaveManager {
       total: this.maxBubblesPerWave,
       remaining: remaining
     };
+  }
+
+  public getTotalEnemies(): number {
+    return this.maxBubblesPerWave;
   }
 
   public reset(): void {

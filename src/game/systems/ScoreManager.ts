@@ -3,6 +3,7 @@ export class ScoreManager {
   private multiplier: number = 1;
   private combo: number = 0;
   private coins: number = 0;
+  private eventListeners: Map<string, Function[]> = new Map();
 
   public addScore(points: number): void {
     const finalPoints = points * this.multiplier;
@@ -10,10 +11,17 @@ export class ScoreManager {
     this.combo++;
 
     // Increase multiplier with combo
+    const oldMultiplier = this.multiplier;
     this.multiplier = Math.min(1 + Math.floor(this.combo / 5), 10);
 
     // Add coins (50% of points)
     this.coins += Math.floor(points * 0.5);
+
+    // Emit events
+    this.emit('scoreChanged', { score: this.score, addition: finalPoints });
+    if (oldMultiplier !== this.multiplier) {
+      this.emit('multiplierChanged', this.multiplier);
+    }
   }
 
   public addWaveReward(wave: number): void {
@@ -25,7 +33,11 @@ export class ScoreManager {
 
   public resetCombo(): void {
     this.combo = 0;
+    const oldMultiplier = this.multiplier;
     this.multiplier = 1;
+    if (oldMultiplier !== this.multiplier) {
+      this.emit('multiplierChanged', this.multiplier);
+    }
   }
 
   public spendCoins(amount: number): boolean {
@@ -57,5 +69,20 @@ export class ScoreManager {
     this.multiplier = 1;
     this.combo = 0;
     this.coins = 0;
+  }
+
+  // Event system
+  public on(event: string, callback: Function): void {
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, []);
+    }
+    this.eventListeners.get(event)!.push(callback);
+  }
+
+  private emit(event: string, data?: any): void {
+    const listeners = this.eventListeners.get(event);
+    if (listeners) {
+      listeners.forEach(callback => callback(data));
+    }
   }
 }

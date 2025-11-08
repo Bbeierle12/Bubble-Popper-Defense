@@ -68,14 +68,25 @@ export class BubbleManager {
   }
 
   public update(deltaTime: number, player: Player): void {
+    // Get player position for bubble chase AI
+    const playerPosition = player.getPosition();
+
     // Update bubbles
     for (let i = this.bubbles.length - 1; i >= 0; i--) {
       const bubble = this.bubbles[i];
-      bubble.update(deltaTime);
 
-      // Check if bubble reached player
-      if (bubble.isOutOfBounds()) {
+      // Pass player position so bubbles can chase the player
+      bubble.update(deltaTime, playerPosition);
+
+      // Check if bubble reaches player position (collision detection)
+      if (bubble.checkCollisionWithPlayer(playerPosition, player.getCollisionRadius())) {
         player.takeDamage();
+        this.removeBubble(i);
+        continue;
+      }
+
+      // Remove bubbles that are too far from play area
+      if (bubble.isOutOfBounds()) {
         this.removeBubble(i);
       }
     }
