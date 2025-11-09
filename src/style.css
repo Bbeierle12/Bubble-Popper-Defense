@@ -48,45 +48,168 @@ body {
   z-index: 100;
 }
 
-.hud-top {
+/* New Clean UI Layout */
+.hud-top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
+  align-items: center;
+  padding: 15px 30px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+  z-index: 100;
 }
 
-.hud-left {
+.hud-score-section {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
 }
 
-.hud-right {
-  text-align: right;
+.score-label {
+  font-size: 12px;
+  color: #00d4ff;
+  letter-spacing: 2px;
+  opacity: 0.8;
 }
 
-.hud-bottom {
+.hud-score-section .score-display {
+  font-size: 36px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+  line-height: 1;
+}
+
+.hud-score-section .multiplier {
+  font-size: 18px;
+  color: #ffd700;
+  font-weight: bold;
+  margin-left: 15px;
+}
+
+.hud-center-section {
+  text-align: center;
+}
+
+.wave-display {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.wave-label {
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.enemy-counter {
+  font-size: 14px;
+  color: #ff6b6b;
+  opacity: 0.9;
+}
+
+.hud-currency-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.stars-display,
+.coins-display {
+  font-size: 20px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stars-display {
+  color: #ffd700;
+}
+
+.coins-display {
+  color: #ffaa00;
+}
+
+/* Bottom Left - Health Section */
+.hud-health-section {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(0, 212, 255, 0.3);
+  border-radius: 10px;
+  padding: 12px 20px;
+}
+
+.health-shield-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shield-row,
+.core-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.health-label {
+  font-size: 14px;
+  color: #00d4ff;
+  min-width: 60px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Bottom Center - Weapon Section */
+.hud-weapon-section {
   position: fixed;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  gap: 40px;
-  align-items: center;
-  padding: 15px 30px;
   background: rgba(0, 0, 0, 0.7);
   border: 2px solid rgba(0, 212, 255, 0.3);
   border-radius: 10px;
-  font-size: 18px;
+  padding: 12px 25px;
 }
 
 .weapon-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 16px;
+}
+
+.weapon-icon {
+  font-size: 24px;
+}
+
+.weapon-name {
   color: #00d4ff;
   font-weight: bold;
+}
+
+.separator {
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .bombs-info {
   color: #ffaa00;
   font-weight: bold;
+}
+
+.bomb-hint {
+  opacity: 0.6;
+  font-size: 14px;
 }
 
 .shield-bar,
@@ -113,29 +236,6 @@ body {
   box-shadow: 0 0 10px #ff0055;
 }
 
-.score-display {
-  font-size: 32px;
-  font-weight: bold;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-}
-
-.wave-info {
-  font-size: 24px;
-  margin-top: 10px;
-}
-
-.multiplier {
-  color: #ffd700;
-  font-size: 24px;
-  font-weight: bold;
-}
-
-.enemy-counter {
-  color: #ff6b6b;
-  font-size: 18px;
-  font-weight: bold;
-  margin-top: 5px;
-}
 
 .shop-panel {
   position: fixed;
@@ -306,7 +406,7 @@ body {
 /* Settings Button */
 .settings-button {
   position: fixed;
-  top: 20px;
+  top: 100px;
   right: 20px;
   width: 50px;
   height: 50px;
@@ -533,27 +633,10 @@ body {
 }
 
 /* Progression System Styles */
-.hud-center {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: white;
-  font-size: 24px;
-  text-align: center;
-}
-
-.stars-display {
-  background: rgba(0, 0, 0, 0.7);
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: 2px solid #ffd700;
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-}
 
 .progression-button {
   position: absolute;
-  top: 80px;
+  top: 160px;
   right: 20px;
   width: 50px;
   height: 50px;

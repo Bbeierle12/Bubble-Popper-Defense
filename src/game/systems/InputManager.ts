@@ -69,6 +69,9 @@ export class InputManager {
 
       // Immediately stop all player movement
       this.player.stopMovement();
+    } else {
+      // Pass initial key states when gaining pointer lock
+      this.player.setMovementKeys(this.keys);
     }
   }
 
@@ -132,8 +135,8 @@ export class InputManager {
     if (key === 'd') this.keys.d = true;
     if (key === 'shift') this.keys.shift = true;
 
-    // Update player movement based on keys
-    this.updatePlayerMovement();
+    // Pass raw key states to player (movement direction calculated in update loop)
+    this.player.setMovementKeys(this.keys);
 
     // B key for screen clear bomb
     if (key === 'b') {
@@ -168,50 +171,12 @@ export class InputManager {
     if (key === 'd') this.keys.d = false;
     if (key === 'shift') this.keys.shift = false;
 
-    // Update player movement based on keys
-    this.updatePlayerMovement();
+    // Pass raw key states to player (movement direction calculated in update loop)
+    this.player.setMovementKeys(this.keys);
   }
 
-  private updatePlayerMovement(): void {
-    // Only process movement when pointer is locked
-    if (!this.isPointerLocked) {
-      return;
-    }
-
-    // Calculate movement direction based on keys
-    const moveDirection = new THREE.Vector3(0, 0, 0);
-
-    // Forward/backward (relative to camera)
-    if (this.keys.w) moveDirection.z -= 1;
-    if (this.keys.s) moveDirection.z += 1;
-
-    // Left/right (relative to camera)
-    if (this.keys.a) moveDirection.x -= 1;
-    if (this.keys.d) moveDirection.x += 1;
-
-    // Normalize to prevent faster diagonal movement
-    if (moveDirection.length() > 0) {
-      moveDirection.normalize();
-
-      // Transform movement direction to world space based on camera rotation
-      const cameraDirection = new THREE.Vector3();
-      this.camera.getWorldDirection(cameraDirection);
-
-      // Get camera's horizontal angle (yaw)
-      const yaw = Math.atan2(cameraDirection.x, cameraDirection.z);
-
-      // Rotate movement vector by camera yaw
-      const rotatedMove = new THREE.Vector3();
-      rotatedMove.x = moveDirection.x * Math.cos(yaw) - moveDirection.z * Math.sin(yaw);
-      rotatedMove.z = moveDirection.x * Math.sin(yaw) + moveDirection.z * Math.cos(yaw);
-      rotatedMove.y = 0; // No vertical movement
-
-      this.player.setMoveInput(rotatedMove, this.keys.shift);
-    } else {
-      // No movement input
-      this.player.setMoveInput(new THREE.Vector3(0, 0, 0), false);
-    }
-  }
+  // Movement direction calculation has been moved to Player.update()
+  // for frame-perfect camera synchronization
 
   public isLocked(): boolean {
     return this.isPointerLocked;

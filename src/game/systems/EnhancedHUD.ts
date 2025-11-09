@@ -6,15 +6,11 @@ export class EnhancedHUD {
   private camera: THREE.Camera;
 
   // Animated elements
-  private scoreElement: HTMLElement | null = null;
   private comboElement: HTMLElement | null = null;
-  private waveProgressBar: HTMLElement | null = null;
   private damageIndicators: HTMLElement[] = [];
   private threatWarnings: HTMLElement[] = [];
 
   // Animation states
-  private currentScore: number = 0;
-  private displayScore: number = 0;
   private comboLevel: number = 0;
   private lastDamageTime: number = 0;
   private threatPositions: THREE.Vector3[] = [];
@@ -31,18 +27,9 @@ export class EnhancedHUD {
   }
 
   private createEnhancedElements(): void {
-    // Animated score counter with glow effect
-    const scoreContainer = document.createElement('div');
-    scoreContainer.className = 'animated-score-container';
-    scoreContainer.innerHTML = `
-      <div class="score-label">SCORE</div>
-      <div class="animated-score" id="animated-score">0</div>
-      <div class="score-addition" id="score-addition"></div>
-    `;
-    this.container.appendChild(scoreContainer);
-    this.scoreElement = document.getElementById('animated-score');
+    // Only create unique visual effects, not duplicate UI elements
 
-    // Combo flame effect
+    // Combo flame effect (visual enhancement only)
     const comboContainer = document.createElement('div');
     comboContainer.className = 'combo-container';
     comboContainer.innerHTML = `
@@ -59,19 +46,6 @@ export class EnhancedHUD {
     this.container.appendChild(comboContainer);
     this.comboElement = document.getElementById('combo-flames');
 
-    // Wave progress bar
-    const waveProgressContainer = document.createElement('div');
-    waveProgressContainer.className = 'wave-progress-container';
-    waveProgressContainer.innerHTML = `
-      <div class="wave-label">WAVE PROGRESS</div>
-      <div class="wave-progress-bar">
-        <div class="wave-progress-fill" id="wave-progress-fill"></div>
-        <div class="wave-progress-text" id="wave-progress-text">0%</div>
-      </div>
-    `;
-    this.container.appendChild(waveProgressContainer);
-    this.waveProgressBar = document.getElementById('wave-progress-fill');
-
     // Damage direction indicators
     for (let i = 0; i < 4; i++) {
       const indicator = document.createElement('div');
@@ -81,7 +55,7 @@ export class EnhancedHUD {
       this.damageIndicators.push(indicator);
     }
 
-    // Threat proximity warnings
+    // Threat proximity warnings (minimap radar)
     const threatContainer = document.createElement('div');
     threatContainer.className = 'threat-container';
     threatContainer.innerHTML = `
@@ -93,42 +67,7 @@ export class EnhancedHUD {
     `;
     this.container.appendChild(threatContainer);
 
-    // Health and shield with pulse effects
-    const healthContainer = document.createElement('div');
-    healthContainer.className = 'health-shield-container';
-    healthContainer.innerHTML = `
-      <div class="shield-display">
-        <div class="shield-icon">🛡️</div>
-        <div class="shield-bars" id="shield-bars">
-          <div class="shield-bar-segment"></div>
-          <div class="shield-bar-segment"></div>
-          <div class="shield-bar-segment"></div>
-        </div>
-      </div>
-      <div class="health-display">
-        <div class="health-icon">❤️</div>
-        <div class="health-bars" id="health-bars">
-          <div class="health-bar-segment"></div>
-          <div class="health-bar-segment"></div>
-          <div class="health-bar-segment"></div>
-          <div class="health-bar-segment"></div>
-          <div class="health-bar-segment"></div>
-        </div>
-      </div>
-    `;
-    this.container.appendChild(healthContainer);
-
-    // Weapon display with ammo counter
-    const weaponContainer = document.createElement('div');
-    weaponContainer.className = 'weapon-display-container';
-    weaponContainer.innerHTML = `
-      <div class="weapon-icon" id="weapon-icon">🔫</div>
-      <div class="weapon-name" id="weapon-name">STANDARD</div>
-      <div class="weapon-ammo" id="weapon-ammo">∞</div>
-    `;
-    this.container.appendChild(weaponContainer);
-
-    // Sprint indicator
+    // Sprint indicator visual effect
     const sprintIndicator = document.createElement('div');
     sprintIndicator.className = 'sprint-indicator';
     sprintIndicator.id = 'sprint-indicator';
@@ -160,64 +99,12 @@ export class EnhancedHUD {
         pointer-events: none;
       }
 
-      /* Animated Score */
-      .animated-score-container {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        text-align: right;
-      }
-
-      .score-label {
-        font-size: 14px;
-        color: #00d4ff;
-        opacity: 0.8;
-        letter-spacing: 2px;
-      }
-
-      .animated-score {
-        font-size: 48px;
-        font-weight: bold;
-        color: #ffffff;
-        text-shadow: 0 0 20px #00d4ff, 0 0 40px #00d4ff;
-        transition: transform 0.1s;
-        animation: score-pulse 0.5s ease-out;
-      }
-
-      @keyframes score-pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.2); }
-        100% { transform: scale(1); }
-      }
-
-      .score-addition {
-        position: absolute;
-        right: 0;
-        top: 80px;
-        font-size: 24px;
-        color: #ffff00;
-        font-weight: bold;
-        opacity: 0;
-        transform: translateY(0);
-        animation: score-float 1s ease-out;
-      }
-
-      @keyframes score-float {
-        0% {
-          opacity: 1;
-          transform: translateY(0);
-        }
-        100% {
-          opacity: 0;
-          transform: translateY(-50px);
-        }
-      }
 
       /* Combo Flames */
       .combo-container {
         position: absolute;
-        top: 120px;
-        right: 20px;
+        top: 100px;
+        left: 30px;
         display: flex;
         align-items: center;
         gap: 10px;
@@ -278,55 +165,6 @@ export class EnhancedHUD {
         text-shadow: 0 0 10px #ff6600;
       }
 
-      /* Wave Progress */
-      .wave-progress-container {
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 300px;
-      }
-
-      .wave-label {
-        text-align: center;
-        font-size: 14px;
-        color: #00d4ff;
-        margin-bottom: 5px;
-        letter-spacing: 2px;
-      }
-
-      .wave-progress-bar {
-        position: relative;
-        height: 20px;
-        background: rgba(0, 0, 0, 0.7);
-        border: 2px solid #00d4ff;
-        border-radius: 10px;
-        overflow: hidden;
-      }
-
-      .wave-progress-fill {
-        height: 100%;
-        width: 0%;
-        background: linear-gradient(90deg, #00d4ff, #00ff88);
-        transition: width 0.3s ease;
-        animation: progress-glow 2s ease-in-out infinite;
-      }
-
-      @keyframes progress-glow {
-        0%, 100% { filter: brightness(1); }
-        50% { filter: brightness(1.3); }
-      }
-
-      .wave-progress-text {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: #ffffff;
-        font-weight: bold;
-        font-size: 12px;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-      }
 
       /* Damage Indicators */
       .damage-indicator {
@@ -358,23 +196,24 @@ export class EnhancedHUD {
         filter: drop-shadow(0 0 10px #ff0000);
       }
 
-      /* Threat Radar */
+      /* Threat Radar / Minimap */
       .threat-container {
         position: absolute;
         bottom: 20px;
         right: 20px;
-        width: 150px;
-        height: 150px;
+        width: 120px;
+        height: 120px;
       }
 
       .threat-radar {
         position: relative;
         width: 100%;
         height: 100%;
-        border: 2px solid #00ff00;
+        border: 2px solid rgba(0, 255, 0, 0.5);
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(0, 255, 0, 0.1), rgba(0, 255, 0, 0));
+        background: radial-gradient(circle, rgba(0, 255, 0, 0.1), rgba(0, 0, 0, 0.4));
         overflow: hidden;
+        backdrop-filter: blur(5px);
       }
 
       .radar-sweep {
@@ -405,88 +244,7 @@ export class EnhancedHUD {
         box-shadow: 0 0 10px #00ff00;
       }
 
-      /* Health and Shield */
-      .health-shield-container {
-        position: absolute;
-        bottom: 20px;
-        left: 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
 
-      .shield-display, .health-display {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .shield-icon, .health-icon {
-        font-size: 24px;
-      }
-
-      .shield-bars, .health-bars {
-        display: flex;
-        gap: 5px;
-      }
-
-      .shield-bar-segment, .health-bar-segment {
-        width: 30px;
-        height: 10px;
-        background: #00d4ff;
-        border: 1px solid #ffffff;
-        transition: all 0.3s;
-      }
-
-      .health-bar-segment {
-        background: #00ff88;
-      }
-
-      .shield-bar-segment.depleted, .health-bar-segment.depleted {
-        background: #333333;
-        opacity: 0.5;
-      }
-
-      .shield-bar-segment.damaged, .health-bar-segment.damaged {
-        animation: bar-flash 0.5s;
-      }
-
-      @keyframes bar-flash {
-        0%, 100% { background: #ff0000; }
-        50% { background: #ffffff; }
-      }
-
-      /* Weapon Display */
-      .weapon-display-container {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 10px 20px;
-        border: 2px solid #00d4ff;
-        border-radius: 20px;
-      }
-
-      .weapon-icon {
-        font-size: 32px;
-      }
-
-      .weapon-name {
-        font-size: 18px;
-        color: #ffffff;
-        font-weight: bold;
-        letter-spacing: 1px;
-      }
-
-      .weapon-ammo {
-        font-size: 24px;
-        color: #00d4ff;
-        font-weight: bold;
-      }
 
       /* Sprint Indicator */
       .sprint-indicator {
@@ -548,41 +306,8 @@ export class EnhancedHUD {
     document.head.appendChild(style);
   }
 
-  public updateScore(score: number, addition?: number): void {
-    this.currentScore = score;
-
-    // Animate score counter
-    if (addition && addition > 0) {
-      const additionEl = document.getElementById('score-addition');
-      if (additionEl) {
-        additionEl.textContent = `+${addition}`;
-        additionEl.style.animation = 'none';
-        void additionEl.offsetHeight; // Trigger reflow
-        additionEl.style.animation = 'score-float 1s ease-out';
-      }
-    }
-
-    // Smoothly animate score display
-    const animateScore = () => {
-      const diff = this.currentScore - this.displayScore;
-      if (Math.abs(diff) < 1) {
-        this.displayScore = this.currentScore;
-      } else {
-        this.displayScore += diff * 0.1;
-        requestAnimationFrame(animateScore);
-      }
-
-      if (this.scoreElement) {
-        this.scoreElement.textContent = Math.floor(this.displayScore).toString();
-        // Pulse effect on score change
-        if (diff > 0) {
-          this.scoreElement.style.animation = 'none';
-          void this.scoreElement.offsetHeight;
-          this.scoreElement.style.animation = 'score-pulse 0.5s ease-out';
-        }
-      }
-    };
-    animateScore();
+  public updateScore(_score: number, _addition?: number): void {
+    // Score is now handled by UIManager, this method kept for compatibility
   }
 
   public updateCombo(multiplier: number): void {
@@ -607,17 +332,8 @@ export class EnhancedHUD {
     }
   }
 
-  public updateWaveProgress(current: number, total: number): void {
-    const progress = (current / total) * 100;
-
-    if (this.waveProgressBar) {
-      this.waveProgressBar.style.width = `${progress}%`;
-    }
-
-    const progressText = document.getElementById('wave-progress-text');
-    if (progressText) {
-      progressText.textContent = `${Math.floor(progress)}%`;
-    }
+  public updateWaveProgress(_current: number, _total: number): void {
+    // Wave progress is now handled by UIManager, this method kept for compatibility
   }
 
   public showDamageIndicator(damageDirection: THREE.Vector3): void {
@@ -685,58 +401,12 @@ export class EnhancedHUD {
     });
   }
 
-  public updateHealth(shield: number, maxShield: number, health: number, maxHealth: number): void {
-    // Update shield bars
-    const shieldBars = document.getElementById('shield-bars');
-    if (shieldBars) {
-      const segments = shieldBars.querySelectorAll('.shield-bar-segment');
-      segments.forEach((segment, index) => {
-        if (index < shield) {
-          segment.classList.remove('depleted');
-        } else {
-          segment.classList.add('depleted');
-        }
-      });
-    }
-
-    // Update health bars
-    const healthBars = document.getElementById('health-bars');
-    if (healthBars) {
-      const segments = healthBars.querySelectorAll('.health-bar-segment');
-      segments.forEach((segment, index) => {
-        if (index < health) {
-          segment.classList.remove('depleted');
-        } else {
-          segment.classList.add('depleted');
-        }
-      });
-    }
+  public updateHealth(_shield: number, _maxShield: number, _health: number, _maxHealth: number): void {
+    // Health is now handled by UIManager, this method kept for compatibility
   }
 
-  public updateWeapon(weaponName: string, ammo: number | null = null): void {
-    const nameEl = document.getElementById('weapon-name');
-    const ammoEl = document.getElementById('weapon-ammo');
-    const iconEl = document.getElementById('weapon-icon');
-
-    if (nameEl) {
-      nameEl.textContent = weaponName.toUpperCase();
-    }
-
-    if (ammoEl) {
-      ammoEl.textContent = ammo !== null ? ammo.toString() : '∞';
-    }
-
-    if (iconEl) {
-      // Change icon based on weapon type
-      const icons: { [key: string]: string } = {
-        'STANDARD': '🔫',
-        'RAPID': '⚡',
-        'SPREAD': '🌟',
-        'PIERCE': '➡️',
-        'LASER': '⚔️'
-      };
-      iconEl.textContent = icons[weaponName.toUpperCase()] || '🔫';
-    }
+  public updateWeapon(_weaponName: string, _ammo: number | null = null): void {
+    // Weapon display is now handled by UIManager, this method kept for compatibility
   }
 
   public updateSprintIndicator(isSprinting: boolean): void {

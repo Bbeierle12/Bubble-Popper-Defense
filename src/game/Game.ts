@@ -537,8 +537,9 @@ export class Game {
 
       // Decay shake over time
       this.shakeIntensity *= 0.9;
-    } else if (this.shakeIntensity > 0) {
-      // Reset to player camera position when shake is done
+    } else {
+      // Always update camera position to follow player
+      // This ensures camera position stays synced with player position
       this.camera.position.copy(this.cameraBasePosition);
       this.shakeIntensity = 0;
     }

@@ -21,6 +21,15 @@ export class Player {
   private moveInput: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
   private isSprinting: boolean = false;
 
+  // Raw movement key states (for frame-perfect camera-relative movement)
+  private movementKeys: { [key: string]: boolean } = {
+    w: false,
+    a: false,
+    s: false,
+    d: false,
+    shift: false
+  };
+
   // Camera effects (view-only, don't affect physics position)
   private bobTime: number = 0;
   private headBobOffset: number = 0; // Y offset for head bob (visual only)
@@ -77,7 +86,10 @@ export class Player {
   }
 
   public update(deltaTime: number): void {
-    // Update movement physics FIRST (affects this.position)
+    // Calculate movement direction from raw keys FIRST (frame-perfect camera sync)
+    this.calculateMovementDirection();
+
+    // Update movement physics (affects this.position)
     this.updateMovement(deltaTime);
 
     // Update camera effects (head bob and FOV - visual only, doesn't modify position)
@@ -86,8 +98,8 @@ export class Player {
     // Update gun animations
     this.updateGunAnimations(deltaTime);
 
-    // Rotate camera to face target
-    this.updateCameraRotation();
+    // Camera rotation is now handled entirely by InputManager (mouse input)
+    // Removed updateCameraRotation() to prevent rotation conflicts
 
     // Apply FOV changes for sprint (only when needed)
     if (this.camera instanceof THREE.PerspectiveCamera) {
@@ -190,6 +202,61 @@ export class Player {
     }
   }
 
+  // New method: receive raw key states from InputManager
+  public setMovementKeys(keys: { [key: string]: boolean }): void {
+    this.movementKeys.w = keys.w || false;
+    this.movementKeys.a = keys.a || false;
+    this.movementKeys.s = keys.s || false;
+    this.movementKeys.d = keys.d || false;
+    this.movementKeys.shift = keys.shift || false;
+  }
+
+  // Calculate movement direction from raw keys (called each frame for frame-perfect sync)
+  private calculateMovementDirection(): void {
+    if (!this.camera) {
+      this.moveInput.set(0, 0, 0);
+      this.isSprinting = false;
+      return;
+    }
+
+    // Calculate movement direction based on keys (in camera space)
+    const moveDirection = new THREE.Vector3(0, 0, 0);
+
+    // Forward/backward (camera space Z-axis)
+    if (this.movementKeys.w) moveDirection.z -= 1;  // Forward (negative Z in camera space)
+    if (this.movementKeys.s) moveDirection.z += 1;  // Backward (positive Z in camera space)
+
+    // Left/right (camera space X-axis)
+    if (this.movementKeys.a) moveDirection.x -= 1;  // Left (negative X in camera space)
+    if (this.movementKeys.d) moveDirection.x += 1;  // Right (positive X in camera space)
+
+    // Update sprint state
+    this.isSprinting = this.movementKeys.shift || false;
+
+    // Transform to world space if there's input
+    if (moveDirection.length() > 0) {
+      moveDirection.normalize(); // Prevent faster diagonal movement
+
+      // Method 1: Use camera's quaternion directly for transformation
+      // This ensures perfect alignment with camera orientation
+      const worldDirection = moveDirection.clone();
+      worldDirection.applyQuaternion(this.camera.quaternion);
+
+      // Project onto XZ plane (remove vertical component)
+      worldDirection.y = 0;
+
+      // Re-normalize after removing Y component
+      if (worldDirection.length() > 0) {
+        worldDirection.normalize();
+      }
+
+      this.moveInput.copy(worldDirection);
+    } else {
+      this.moveInput.set(0, 0, 0);
+    }
+  }
+
+  // Legacy method for compatibility (can be removed if no longer needed)
   public setMoveInput(input: THREE.Vector3, sprinting: boolean): void {
     this.moveInput.copy(input);
     this.isSprinting = sprinting;
@@ -200,6 +267,13 @@ export class Player {
     this.moveInput.set(0, 0, 0);
     this.velocity.set(0, 0, 0);
     this.isSprinting = false;
+
+    // Clear key states
+    this.movementKeys.w = false;
+    this.movementKeys.a = false;
+    this.movementKeys.s = false;
+    this.movementKeys.d = false;
+    this.movementKeys.shift = false;
   }
 
   public getPosition(): THREE.Vector3 {
@@ -223,13 +297,8 @@ export class Player {
     return this.isSprinting && this.isMoving();
   }
 
-  private updateCameraRotation(): void {
-    if (!this.camera) return;
-    
-    // Make camera look at target position
-    this.camera.lookAt(this.targetPosition);
-  }
-
+  // Camera rotation is controlled entirely by InputManager
+  // Aim target is used for shooting direction only, not camera rotation
   public setAimTarget(position: THREE.Vector3): void {
     this.targetPosition.copy(position);
   }

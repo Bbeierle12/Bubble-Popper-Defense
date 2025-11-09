@@ -44,45 +44,65 @@ export class UIManager {
     if (!this.hudElement) return;
 
     this.hudElement.innerHTML = `
-      <div class="hud-top">
-        <div class="hud-left">
-          <div>
-            <div>Shield:</div>
+      <!-- Top Bar - Score, Wave, Stars -->
+      <div class="hud-top-bar">
+        <div class="hud-score-section">
+          <div class="score-label">SCORE</div>
+          <div class="score-display" id="score">0</div>
+          <div class="multiplier">x<span id="multiplier">1</span></div>
+        </div>
+
+        <div class="hud-center-section">
+          <div class="wave-display">
+            <div class="wave-label">WAVE <span id="wave-number">1</span></div>
+            <div class="enemy-counter" id="enemy-counter">Enemies: 0/0</div>
+          </div>
+        </div>
+
+        <div class="hud-currency-section">
+          <div class="stars-display">⭐ <span id="stars">0</span></div>
+          <div class="coins-display">💰 <span id="coins">0</span></div>
+        </div>
+      </div>
+
+      <!-- Bottom Left - Health & Shield -->
+      <div class="hud-health-section">
+        <div class="health-shield-container">
+          <div class="shield-row">
+            <span class="health-label">Shield:</span>
             <div class="shield-bar" id="shield-bar"></div>
           </div>
-          <div>
-            <div>Core:</div>
+          <div class="core-row">
+            <span class="health-label">Core:</span>
             <div class="core-bar" id="core-bar"></div>
           </div>
         </div>
-        <div class="hud-center">
-          <div class="stars-display">⭐ <span id="stars">0</span></div>
-        </div>
-        <div class="hud-right">
-          <div class="score-display" id="score">0</div>
-          <div class="wave-info">
-            <span>Wave <span id="wave-number">1</span></span>
-            <span class="multiplier">x<span id="multiplier">1</span></span>
-          </div>
-          <div class="enemy-counter" id="enemy-counter">Enemies: 0/0</div>
-          <div>Coins: <span id="coins">0</span></div>
-        </div>
       </div>
-      <div class="hud-bottom">
+
+      <!-- Bottom Center - Weapon Info -->
+      <div class="hud-weapon-section">
         <div class="weapon-info">
-          <span>Weapon: <span id="current-weapon">Standard</span></span>
-        </div>
-        <div class="bombs-info">
-          <span>💣 Bombs: <span id="bomb-count">0</span> <span style="opacity: 0.6;">(Press B)</span></span>
+          <span class="weapon-icon">🔫</span>
+          <span class="weapon-name">Weapon: <span id="current-weapon">Standard</span></span>
+          <span class="separator">|</span>
+          <span class="bombs-info">Bombs: <span id="bomb-count">0</span> <span class="bomb-hint">(Press B)</span></span>
         </div>
       </div>
+
+      <!-- Boss Health Bar (Hidden by default) -->
       <div class="boss-health-bar" id="boss-health-bar">
         <div class="boss-health-label">BOSS</div>
         <div class="boss-health-fill" id="boss-health-fill"></div>
       </div>
+
+      <!-- UI Buttons -->
       <button class="settings-button" id="settings-button" title="Settings (S)">⚙️</button>
       <button class="progression-button" id="progression-button" title="Progression (P)">⭐</button>
+
+      <!-- Pointer Lock Hint -->
       <div class="pointer-lock-hint" id="pointer-lock-hint">Click to play</div>
+
+      <!-- Achievement Notification -->
       <div class="achievement-notification" id="achievement-notification"></div>
     `;
 
