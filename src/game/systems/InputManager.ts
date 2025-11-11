@@ -128,32 +128,45 @@ export class InputManager {
     // Only track keys when pointer is locked - prevents stale key states
     if (!this.isPointerLocked) return;
 
-    // Track WASD movement keys
-    if (key === 'w') this.keys.w = true;
-    if (key === 'a') this.keys.a = true;
-    if (key === 's') this.keys.s = true;
-    if (key === 'd') this.keys.d = true;
-    if (key === 'shift') this.keys.shift = true;
+    // Check key bindings
+    const forwardKey = this.settingsManager.getKeyBinding('moveForward') || 'w';
+    const backwardKey = this.settingsManager.getKeyBinding('moveBackward') || 's';
+    const leftKey = this.settingsManager.getKeyBinding('moveLeft') || 'a';
+    const rightKey = this.settingsManager.getKeyBinding('moveRight') || 'd';
+    const sprintKey = this.settingsManager.getKeyBinding('sprint') || 'shift';
+    const bombKey = this.settingsManager.getKeyBinding('bomb') || 'b';
+
+    // Track movement keys based on bindings
+    if (key === forwardKey) this.keys.w = true;
+    if (key === leftKey) this.keys.a = true;
+    if (key === backwardKey) this.keys.s = true;
+    if (key === rightKey) this.keys.d = true;
+    if (key === sprintKey) this.keys.shift = true;
 
     // Pass raw key states to player (movement direction calculated in update loop)
     this.player.setMovementKeys(this.keys);
 
-    // B key for screen clear bomb
-    if (key === 'b') {
+    // Bomb key
+    if (key === bombKey) {
       const weaponManager = this.player.getWeaponManager();
       if (weaponManager.useScreenClearBomb()) {
         // Bomb activated successfully
       }
     }
 
-    // Number keys for weapon switching
-    if (event.key === '1') {
+    // Weapon switching based on key bindings
+    const weapon1Key = this.settingsManager.getKeyBinding('weapon1') || '1';
+    const weapon2Key = this.settingsManager.getKeyBinding('weapon2') || '2';
+    const weapon3Key = this.settingsManager.getKeyBinding('weapon3') || '3';
+    const weapon4Key = this.settingsManager.getKeyBinding('weapon4') || '4';
+
+    if (key === weapon1Key) {
       this.player.getWeaponManager().setWeapon('standard');
-    } else if (event.key === '2') {
+    } else if (key === weapon2Key) {
       this.player.getWeaponManager().setWeapon('rapidFire');
-    } else if (event.key === '3') {
+    } else if (key === weapon3Key) {
       this.player.getWeaponManager().setWeapon('spreadShot');
-    } else if (event.key === '4') {
+    } else if (key === weapon4Key) {
       this.player.getWeaponManager().setWeapon('pierceShot');
     }
   }
@@ -164,12 +177,19 @@ export class InputManager {
     // Only track keys when pointer is locked - prevents stale key states
     if (!this.isPointerLocked) return;
 
-    // Track WASD movement keys
-    if (key === 'w') this.keys.w = false;
-    if (key === 'a') this.keys.a = false;
-    if (key === 's') this.keys.s = false;
-    if (key === 'd') this.keys.d = false;
-    if (key === 'shift') this.keys.shift = false;
+    // Check key bindings
+    const forwardKey = this.settingsManager.getKeyBinding('moveForward') || 'w';
+    const backwardKey = this.settingsManager.getKeyBinding('moveBackward') || 's';
+    const leftKey = this.settingsManager.getKeyBinding('moveLeft') || 'a';
+    const rightKey = this.settingsManager.getKeyBinding('moveRight') || 'd';
+    const sprintKey = this.settingsManager.getKeyBinding('sprint') || 'shift';
+
+    // Track movement keys based on bindings
+    if (key === forwardKey) this.keys.w = false;
+    if (key === leftKey) this.keys.a = false;
+    if (key === backwardKey) this.keys.s = false;
+    if (key === rightKey) this.keys.d = false;
+    if (key === sprintKey) this.keys.shift = false;
 
     // Pass raw key states to player (movement direction calculated in update loop)
     this.player.setMovementKeys(this.keys);

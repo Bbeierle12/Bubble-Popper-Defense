@@ -407,23 +407,118 @@ export class UIManager {
         <div class="settings-content">
           <h2 class="settings-title">Settings</h2>
 
-          <div class="setting-group">
-            <label for="sensitivity-slider">Mouse Sensitivity</label>
-            <input type="range" id="sensitivity-slider" min="1" max="100" value="${Math.round(settings.mouseSensitivity * 10000)}" />
-            <span id="sensitivity-value">${Math.round(settings.mouseSensitivity * 10000)}</span>
+          <!-- Tab Navigation -->
+          <div class="settings-tabs">
+            <button class="settings-tab active" data-tab="gameplay">Gameplay</button>
+            <button class="settings-tab" data-tab="controls">Controls</button>
+            <button class="settings-tab" data-tab="graphics">Graphics</button>
+            <button class="settings-tab" data-tab="audio">Audio</button>
           </div>
 
-          <div class="setting-group">
-            <label for="volume-slider">Audio Volume</label>
-            <input type="range" id="volume-slider" min="0" max="100" value="${Math.round(settings.audioVolume * 100)}" />
-            <span id="volume-value">${Math.round(settings.audioVolume * 100)}%</span>
+          <!-- Gameplay Settings -->
+          <div class="settings-tab-content active" id="gameplay-tab">
+            <h3>Mouse Settings</h3>
+            <div class="setting-group">
+              <label for="sensitivity-slider">Mouse Sensitivity</label>
+              <input type="range" id="sensitivity-slider" min="1" max="100" value="${Math.round(settings.mouseSensitivity * 10000)}" />
+              <span id="sensitivity-value">${Math.round(settings.mouseSensitivity * 10000)}</span>
+            </div>
+
+            <div class="setting-group">
+              <label>
+                <input type="checkbox" id="invert-y-checkbox" ${settings.invertY ? 'checked' : ''} />
+                Invert Y-Axis
+              </label>
+            </div>
+
+            <h3>Field of View</h3>
+            <div class="setting-group">
+              <label for="fov-slider">FOV</label>
+              <input type="range" id="fov-slider" min="60" max="120" value="${settings.fov}" />
+              <span id="fov-value">${settings.fov}°</span>
+            </div>
           </div>
 
-          <div class="setting-group">
-            <label>
-              <input type="checkbox" id="invert-y-checkbox" ${settings.invertY ? 'checked' : ''} />
-              Invert Y-Axis
-            </label>
+          <!-- Controls Tab -->
+          <div class="settings-tab-content" id="controls-tab">
+            <h3>Key Bindings</h3>
+            <div class="keybindings-list">
+              ${settings.keyBindings.map(binding => `
+                <div class="keybinding-item" data-action="${binding.action}">
+                  <span class="keybinding-label">${binding.displayName}</span>
+                  <button class="keybinding-button" data-action="${binding.action}">${this.formatKeyDisplay(binding.key)}</button>
+                </div>
+              `).join('')}
+            </div>
+            <button class="reset-bindings-button" id="reset-bindings">Reset to Defaults</button>
+          </div>
+
+          <!-- Graphics Tab -->
+          <div class="settings-tab-content" id="graphics-tab">
+            <h3>Display Settings</h3>
+            <div class="setting-group">
+              <label>
+                <input type="checkbox" id="fullscreen-checkbox" ${settings.fullscreen ? 'checked' : ''} />
+                Fullscreen
+              </label>
+            </div>
+
+            <div class="setting-group">
+              <label for="resolution-select">Resolution</label>
+              <select id="resolution-select">
+                <option value="auto" ${settings.resolution === 'auto' ? 'selected' : ''}>Auto</option>
+                <option value="1920x1080" ${settings.resolution === '1920x1080' ? 'selected' : ''}>1920x1080</option>
+                <option value="1600x900" ${settings.resolution === '1600x900' ? 'selected' : ''}>1600x900</option>
+                <option value="1366x768" ${settings.resolution === '1366x768' ? 'selected' : ''}>1366x768</option>
+                <option value="1280x720" ${settings.resolution === '1280x720' ? 'selected' : ''}>1280x720</option>
+              </select>
+            </div>
+
+            <h3>Quality Settings</h3>
+            <div class="setting-group">
+              <label for="shadow-quality">Shadow Quality</label>
+              <select id="shadow-quality">
+                <option value="low" ${settings.shadowQuality === 'low' ? 'selected' : ''}>Low</option>
+                <option value="medium" ${settings.shadowQuality === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="high" ${settings.shadowQuality === 'high' ? 'selected' : ''}>High</option>
+              </select>
+            </div>
+
+            <div class="setting-group">
+              <label>
+                <input type="checkbox" id="antialiasing-checkbox" ${settings.antialiasing ? 'checked' : ''} />
+                Anti-aliasing
+              </label>
+            </div>
+
+            <div class="setting-group">
+              <label>
+                <input type="checkbox" id="vsync-checkbox" ${settings.vsync ? 'checked' : ''} />
+                V-Sync
+              </label>
+            </div>
+
+            <div class="setting-group">
+              <label for="fps-slider">FPS Limit</label>
+              <input type="range" id="fps-slider" min="30" max="240" step="30" value="${settings.fps}" />
+              <span id="fps-value">${settings.fps}</span>
+            </div>
+
+            <div class="setting-group">
+              <label for="render-distance-slider">Render Distance</label>
+              <input type="range" id="render-distance-slider" min="100" max="5000" step="100" value="${settings.renderDistance}" />
+              <span id="render-distance-value">${settings.renderDistance}</span>
+            </div>
+          </div>
+
+          <!-- Audio Tab -->
+          <div class="settings-tab-content" id="audio-tab">
+            <h3>Volume Settings</h3>
+            <div class="setting-group">
+              <label for="volume-slider">Master Volume</label>
+              <input type="range" id="volume-slider" min="0" max="100" value="${Math.round(settings.audioVolume * 100)}" />
+              <span id="volume-value">${Math.round(settings.audioVolume * 100)}%</span>
+            </div>
           </div>
 
           <div class="settings-hint">
@@ -464,6 +559,196 @@ export class UIManager {
     // Setup close button
     document.getElementById('close-settings-button')?.addEventListener('click', () => {
       this.hideSettings();
+    });
+
+    // Setup tab navigation
+    this.setupSettingsTabs();
+
+    // Setup new controls
+    this.setupGraphicsSettings();
+    this.setupControlsSettings();
+    this.setupGameplaySettings();
+  }
+
+  private formatKeyDisplay(key: string): string {
+    // Format special keys for better display
+    const keyMap: { [key: string]: string } = {
+      'mouse0': 'Left Click',
+      'mouse1': 'Right Click',
+      'mouse2': 'Middle Click',
+      'shift': 'Shift',
+      'control': 'Ctrl',
+      'alt': 'Alt',
+      'escape': 'Esc',
+      'arrowup': '↑',
+      'arrowdown': '↓',
+      'arrowleft': '←',
+      'arrowright': '→',
+      ' ': 'Space'
+    };
+    return keyMap[key.toLowerCase()] || key.toUpperCase();
+  }
+
+  private setupSettingsTabs(): void {
+    const tabs = document.querySelectorAll('.settings-tab');
+    const contents = document.querySelectorAll('.settings-tab-content');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetTab = (tab as HTMLElement).dataset.tab;
+
+        // Update active states
+        tabs.forEach(t => t.classList.remove('active'));
+        contents.forEach(c => c.classList.remove('active'));
+
+        tab.classList.add('active');
+        document.getElementById(`${targetTab}-tab`)?.classList.add('active');
+      });
+    });
+  }
+
+  private setupGraphicsSettings(): void {
+    // Fullscreen
+    document.getElementById('fullscreen-checkbox')?.addEventListener('change', (e) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      this.settingsManager.setFullscreen(checked);
+      if (checked) {
+        document.documentElement.requestFullscreen();
+      } else if (document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    });
+
+    // Resolution
+    document.getElementById('resolution-select')?.addEventListener('change', (e) => {
+      this.settingsManager.setResolution((e.target as HTMLSelectElement).value);
+    });
+
+    // Shadow Quality
+    document.getElementById('shadow-quality')?.addEventListener('change', (e) => {
+      this.settingsManager.setShadowQuality((e.target as HTMLSelectElement).value as 'low' | 'medium' | 'high');
+      this.emit('graphicsSettingsChanged');
+    });
+
+    // Anti-aliasing
+    document.getElementById('antialiasing-checkbox')?.addEventListener('change', (e) => {
+      this.settingsManager.setAntialiasing((e.target as HTMLInputElement).checked);
+      this.emit('graphicsSettingsChanged');
+    });
+
+    // V-Sync
+    document.getElementById('vsync-checkbox')?.addEventListener('change', (e) => {
+      this.settingsManager.setVsync((e.target as HTMLInputElement).checked);
+    });
+
+    // FPS Limit
+    const fpsSlider = document.getElementById('fps-slider') as HTMLInputElement;
+    const fpsValue = document.getElementById('fps-value');
+    fpsSlider?.addEventListener('input', (e) => {
+      const value = parseInt((e.target as HTMLInputElement).value);
+      this.settingsManager.setFPS(value);
+      if (fpsValue) fpsValue.textContent = value.toString();
+    });
+
+    // Render Distance
+    const renderSlider = document.getElementById('render-distance-slider') as HTMLInputElement;
+    const renderValue = document.getElementById('render-distance-value');
+    renderSlider?.addEventListener('input', (e) => {
+      const value = parseInt((e.target as HTMLInputElement).value);
+      this.settingsManager.setRenderDistance(value);
+      if (renderValue) renderValue.textContent = value.toString();
+      this.emit('graphicsSettingsChanged');
+    });
+  }
+
+  private setupGameplaySettings(): void {
+    // FOV Slider
+    const fovSlider = document.getElementById('fov-slider') as HTMLInputElement;
+    const fovValue = document.getElementById('fov-value');
+    fovSlider?.addEventListener('input', (e) => {
+      const value = parseInt((e.target as HTMLInputElement).value);
+      this.settingsManager.setFOV(value);
+      if (fovValue) fovValue.textContent = value + '°';
+      this.emit('fovChanged', value);
+    });
+  }
+
+  private setupControlsSettings(): void {
+    // Setup key binding buttons
+    const bindingButtons = document.querySelectorAll('.keybinding-button');
+    bindingButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        const btn = e.target as HTMLButtonElement;
+        const action = btn.dataset.action;
+        if (!action) return;
+
+        // Enter rebinding mode
+        btn.textContent = 'Press any key...';
+        btn.classList.add('rebinding');
+
+        const handleKeyPress = (event: KeyboardEvent) => {
+          event.preventDefault();
+          let key = event.key.toLowerCase();
+
+          // Handle special keys
+          if (event.key === ' ') key = ' ';
+          if (event.key === 'Escape') {
+            // Cancel rebinding
+            const currentBinding = this.settingsManager.getKeyBinding(action);
+            btn.textContent = this.formatKeyDisplay(currentBinding || '');
+            btn.classList.remove('rebinding');
+            document.removeEventListener('keydown', handleKeyPress);
+            document.removeEventListener('mousedown', handleMousePress);
+            return;
+          }
+
+          // Set new binding
+          this.settingsManager.setKeyBinding(action, key);
+          btn.textContent = this.formatKeyDisplay(key);
+          btn.classList.remove('rebinding');
+
+          // Update other buttons if there was a conflict
+          this.refreshKeyBindingButtons();
+
+          document.removeEventListener('keydown', handleKeyPress);
+          document.removeEventListener('mousedown', handleMousePress);
+        };
+
+        const handleMousePress = (event: MouseEvent) => {
+          event.preventDefault();
+          const key = `mouse${event.button}`;
+
+          // Set new binding
+          this.settingsManager.setKeyBinding(action, key);
+          btn.textContent = this.formatKeyDisplay(key);
+          btn.classList.remove('rebinding');
+
+          // Update other buttons if there was a conflict
+          this.refreshKeyBindingButtons();
+
+          document.removeEventListener('keydown', handleKeyPress);
+          document.removeEventListener('mousedown', handleMousePress);
+        };
+
+        document.addEventListener('keydown', handleKeyPress);
+        document.addEventListener('mousedown', handleMousePress);
+      });
+    });
+
+    // Reset bindings button
+    document.getElementById('reset-bindings')?.addEventListener('click', () => {
+      this.settingsManager.resetKeyBindings();
+      this.refreshKeyBindingButtons();
+    });
+  }
+
+  private refreshKeyBindingButtons(): void {
+    const bindings = this.settingsManager.getKeyBindings();
+    bindings.forEach(binding => {
+      const button = document.querySelector(`.keybinding-button[data-action="${binding.action}"]`) as HTMLButtonElement;
+      if (button) {
+        button.textContent = this.formatKeyDisplay(binding.key);
+      }
     });
   }
 
